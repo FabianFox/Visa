@@ -6,7 +6,7 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "igraph", "readxl")
+pkg_attach2("tidyverse", "rio", "countrycode", "igraph", "readxl", "states")
 
                       #############################
                       #   Visa Network Data 2020  #
@@ -34,16 +34,29 @@ visa_2020.df <- visa_2020.df %>%
     TRUE ~ NA_real_),
     across(c("destination_iso3", "nationality_iso3"), ~str_replace(.x, "\\bD\\b", "DEU")))
 
+# Independent states as defined by Gleditsch & Ward (1999) 
+# data: http://ksgleditsch.com/data-4.html
+# Note: excluding microstates
+# Custom matches, i.e. 347 (Kosovo) = XKX
+custom.match <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
+
+# Data
+states.df <- gwstates %>%
+  filter(year(end) == 9999 & microstate == FALSE) %>%
+  mutate(iso3c = countrycode(gwcode, "cown", "iso3c",     # original ISO3 is out-of-date
+                            custom_match = custom.match))
+
+# Subset
+visa_2020.df <- visa_2020.df %>%
+  filter(destination_iso3 %in% states.df$iso3c &
+           nationality_iso3 %in% states.df$iso3c)
+
+
 # Manually add missing information on a few dyads in 2020
 ### ------------------------------------------------------------------------###
 # CAN -> SOM (visa required)
 visa_2020.df[visa_2020.df$destination_iso3 == "CAN" & 
                visa_2020.df$nationality_iso3 == "SOM",
-             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
-
-# CHN -> HKG (home return permit) [see: https://en.wikipedia.org/wiki/Mainland_Travel_Permit_for_Hong_Kong_and_Macao_Residents]
-visa_2020.df[visa_2020.df$destination_iso3 == "CHN" & 
-               visa_2020.df$nationality_iso3 == "HKG",
              c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
 
 # BRA -> CAF (visa required)
