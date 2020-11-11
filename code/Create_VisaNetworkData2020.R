@@ -18,6 +18,8 @@ visa_2020.df <- import("./data/VWP_06_2020.RDS") %>%
   mutate(requirement = flatten_chr(requirement)) %>%
   ungroup()
 
+# Data cleaning
+### ------------------------------------------------------------------------###
 # (1) Split requirement into information on visa and passport requirements
 # (2) Create a binary indicator on visa waivers (1 = visa req. waived; 0 = visa req)
 visa_2020.df <- visa_2020.df %>%
@@ -32,10 +34,48 @@ visa_2020.df <- visa_2020.df %>%
     TRUE ~ NA_real_),
     across(c("destination_iso3", "nationality_iso3"), ~str_replace(.x, "\\bD\\b", "DEU")))
 
+# Manually add missing information on a few dyads in 2020
+### ------------------------------------------------------------------------###
+# CAN -> SOM (visa required)
+visa_2020.df[visa_2020.df$destination_iso3 == "CAN" & 
+               visa_2020.df$nationality_iso3 == "SOM",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+
+# CHN -> HKG (home return permit) [see: https://en.wikipedia.org/wiki/Mainland_Travel_Permit_for_Hong_Kong_and_Macao_Residents]
+visa_2020.df[visa_2020.df$destination_iso3 == "CHN" & 
+               visa_2020.df$nationality_iso3 == "HKG",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+
+# BRA -> CAF (visa required)
+visa_2020.df[visa_2020.df$destination_iso3 == "BRA" & 
+               visa_2020.df$nationality_iso3 == "CAF",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+
+# ARE -> ISR (visa required / not applicable)
+visa_2020.df[visa_2020.df$destination_iso3 == "ARE" & 
+               visa_2020.df$nationality_iso3 == "ISR",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+  
+# GBR -> NAM (no visa required)
+visa_2020.df[visa_2020.df$destination_iso3 == "GBR" & 
+               visa_2020.df$nationality_iso3 == "NAM",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is not required.", 1)
+
+# ARE -> QAT (visa required)
+visa_2020.df[visa_2020.df$destination_iso3 == "ARE" & 
+               visa_2020.df$nationality_iso3 == "QAT",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+
 # Transform into  a network format
 # Create an igraph graph from data frame
-visa_2020.graph <- graph_from_data_frame(visa_2020.df[,c(1,2,6)], directed = TRUE)
+visa_2020.graph <- graph_from_data_frame(visa_2020.df[,c("destination_iso3",
+                                                         "nationality_iso3",
+                                                         "visa_requirement_binary")], 
+                                         directed = TRUE)
 
 # Transform into a matrix
 visa_2020.mat <- get.adjacency(visa_2020.graph, sparse = FALSE, 
                           attr = "visa_requirement_binary")
+
+# Export
+export(visa_2020.df, "./data/visa_2020.rds")
