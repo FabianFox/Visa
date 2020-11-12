@@ -9,7 +9,7 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode")
+pkg_attach2("tidyverse", "rio", "countrycode", "wbstats")
 
 # Load data
 ### ------------------------------------------------------------------------###
@@ -77,3 +77,23 @@ cap_dist.df <- import("./data/capital_distances.rds") %>%
 # Join to visa.df
 visa.df <- visa.df %>%
   left_join(y = cap_dist.df)
+
+# World Bank Indicator
+# GDP per capita, PPP (current international $) - "NY.GDP.PCAP.PP.CD"
+# Total Population - "SP.POP.TOTL"
+# Year: 2019
+## -------------------------------------------------------------------------- ##
+# (1) Download WB data
+# Download data (mrv = newest available; here: 2017)
+wb.info <- wb_data(country = unique(visa.df$destination_iso3),
+                   indicator = c("NY.GDP.PCAP.PP.CD", "SP.POP.TOTL"), 
+                   start_date = 2019, end_date = 2019, return_wide = TRUE)
+
+# Join to visa.df
+visa.df <- visa.df %>%
+  mutate(
+    dest_pop = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$SP.POP.TOTL,
+    nat_pop = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$SP.POP.TOTL,
+    dest_gdp = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$NY.GDP.PCAP.PP.CD,
+    nat_gdp = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$NY.GDP.PCAP.PP.CD)
+    
