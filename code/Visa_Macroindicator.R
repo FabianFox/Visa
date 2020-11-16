@@ -15,6 +15,10 @@ pkg_attach2("tidyverse", "rio", "countrycode", "wbstats")
 ### ------------------------------------------------------------------------###
 visa.df <- import("./data/visa_2020.rds")
 
+## -------------------------------------------------------------------------- ##
+##                               GEOGRAPHY                                    ##
+## -------------------------------------------------------------------------- ##
+
 # Load data:
 # - Direct Contiguity
 # - Accessed: 2020/11/11
@@ -78,22 +82,109 @@ cap_dist.df <- import("./data/capital_distances.rds") %>%
 visa.df <- visa.df %>%
   left_join(y = cap_dist.df)
 
+## -------------------------------------------------------------------------- ##
+##                                 ECONOMY                                    ##
+## -------------------------------------------------------------------------- ##
+
 # World Bank Indicator
 # GDP per capita, PPP (current international $) - "NY.GDP.PCAP.PP.CD"
 # Total Population - "SP.POP.TOTL"
-# Year: 2019
+# Year: Mean/Median (2015-2019)
 ## -------------------------------------------------------------------------- ##
 # (1) Download WB data
-# Download data (mrv = newest available; here: 2017)
+# Download data (mrv = newest available)
 wb.info <- wb_data(country = unique(visa.df$destination_iso3),
                    indicator = c("NY.GDP.PCAP.PP.CD", "SP.POP.TOTL"), 
-                   start_date = 2019, end_date = 2019, return_wide = TRUE)
+                   start_date = 2015, end_date = 2019, return_wide = TRUE) %>%
+  group_by(iso3c) %>%
+  summarise(pop_median = median(SP.POP.TOTL, na.rm = TRUE),
+            pop_mean = mean(SP.POP.TOTL, na.rm = TRUE),
+            gdp_median = median(NY.GDP.PCAP.PP.CD, na.rm = TRUE),
+            gdp_mean = mean(NY.GDP.PCAP.PP.CD, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(starts_with(c("pop", "gdp")), iso3c)
+
+# Find missing values (N = 8)
+wb.info %>% 
+  filter_all(any_vars(is.na(.)))
+
+# Replace missing values (i.e. CIA World Factbook)
 
 # Join to visa.df
 visa.df <- visa.df %>%
   mutate(
-    dest_pop = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$SP.POP.TOTL,
-    nat_pop = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$SP.POP.TOTL,
-    dest_gdp = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$NY.GDP.PCAP.PP.CD,
-    nat_gdp = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$NY.GDP.PCAP.PP.CD)
+    dest_pop_median = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$pop_median,
+    dest_pop_mean = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$pop_mean,
+    nat_pop_median = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$pop_median,
+    nat_pop_mean = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$pop_mean,
     
+    dest_gdp_median = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$gdp_median,
+    dest_gdp_mean = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$gdp_mean,
+    nat_gdp_median = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$gdp_median,
+    nat_gdp_mean = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$gdp_mean)
+
+# COW: Trade v4.0
+# Variable: flow1, flow2
+# Year: 2014
+# retrieved from https://correlatesofwar.org/data-sets/bilateral-trade
+## -------------------------------------------------------------------------- ##
+# Dyadic trade
+trade_dyad.df <- import("./data/independent variables/Dyadic_COW_4.0.csv") %>%
+  select(state1 = ccode1, state2 = ccode2, year, import = flow1, export = flow2) %>%
+  filter(year == 2014) %>%
+  mutate(state1 = countrycode(sourcevar = state1, 
+                              origin = "cown", 
+                              destination = "iso3c", 
+                              custom_match = custom.match),
+         state2 = countrycode(sourcevar = state2, 
+                              origin = "cown", 
+                              destination = "iso3c", 
+                              custom_match = custom.match),
+         import = na_if(import, -9),
+         export = na_if(export, -9))
+
+# Make the dataset (long) dyadic
+# (1) Duplicate dataset, swap country identifiers and rename them
+swap.df <- trade_dyad.df %>%
+  rename(
+    state1 = state2,
+    state2 = state1,
+  ) %>%
+  rename(export = import,
+         import = export
+  )
+
+# (2) Merge trade.df and swap.df
+trade_dyad.df <- trade_dyad.df %>%
+  bind_rows(., swap.df) %>%
+  mutate(dyadName = paste(state1, state2, sep = "_")) %>%
+  select(dyadName, state1, state2, contains(c("export", "import"))) %>%
+  arrange(dyadName)
+
+# Monadic trade
+## -------------------------------------------------------------------------- ##
+trade_monadic.df <- import("./data/independent variables/National_COW_4.0.csv") %>%
+  select(state = ccode, year, import_total = imports, export_total = exports) %>%
+  filter(year == 2014) %>%
+  mutate(state = countrycode(sourcevar = state, 
+                              origin = "cown", 
+                              destination = "iso3c"), 
+         import_total = na_if(import_total, -9),
+         export_total = na_if(export_total, -9)) %>%
+  select(-year)
+
+# Economic interdependence 
+# Share imports / total imports
+# Share exports / total exports
+# Trade interdependence (see Avdan 2019: 88)
+## -------------------------------------------------------------------------- ##
+trade.df <- trade_dyad.df %>%
+  left_join(y = trade_monadic.df, by = c("state1" = "state")) %>%
+  mutate(import_share = import / import_total * 100,
+         export_share = export / export_total * 100,
+         trade_interdependence = (import + export) / (import_total + export_total))
+
+## -------------------------------------------------------------------------- ##
+##                                 MOBILITY                                   ##
+## -------------------------------------------------------------------------- ##
+
