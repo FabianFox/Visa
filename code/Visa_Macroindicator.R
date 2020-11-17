@@ -1,5 +1,5 @@
 # Visa Network Data: 2020
-# Append indendent variables
+# Append independent variables
 
 # Data
 # year: 2020
@@ -184,7 +184,38 @@ trade.df <- trade_dyad.df %>%
          export_share = export / export_total * 100,
          trade_interdependence = (import + export) / (import_total + export_total))
 
+# Join to visa.df
+visa.df <- visa.df %>%
+  left_join(y = trade.df, by = c("destination_iso3" = "state1", 
+                                 "nationality_iso3" = "state2")) %>%
+  select(destination_iso3, nationality_iso3, dyad_name = dyadName, everything())
+
 ## -------------------------------------------------------------------------- ##
 ##                                 MOBILITY                                   ##
 ## -------------------------------------------------------------------------- ##
 
+# Global Transnational Mobility
+# Variable: Estimated trips
+# Year: 2016
+# retrieved from Recchi et al. (2019) "Estimating Transnational Human Mobility 
+#                                      on a Global Scale"
+# Note: Dataset was transformed from .xlsx to .csv to speed up importing
+## -------------------------------------------------------------------------- ##
+# (1) Load and filter to 2016
+gtm.df <- import("./data/independent variables/Global_Transnational_Mobility_dataset_v1.0.csv") %>%
+  select(3:6) %>%
+  filter(year == 2016) %>%
+  select(-year) %>%
+  mutate(dyadName = dyadId_fun(source_iso3, target_iso3))
+
+# (2) Join to visa.df
+# estimated trips are (~nearly) symmetric
+visa.df <- visa.df %>%
+  # outgoing trips
+  left_join(y = gtm.df, by = c("destination_iso3" = "source_iso3", 
+                               "nationality_iso3" = "target_iso3")) %>%
+  rename(trips_outgoing = estimated_trips) %>%
+  # incoming trips
+  left_join(y = gtm.df, by = c("destination_iso3" = "target_iso3", 
+                               "nationality_iso3" = "source_iso3")) %>%
+  rename(trips_incoming = estimated_trips)
