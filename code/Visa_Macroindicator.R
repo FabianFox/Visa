@@ -156,10 +156,7 @@ swap.df <- trade_dyad.df %>%
 
 # (2) Merge trade.df and swap.df
 trade_dyad.df <- trade_dyad.df %>%
-  bind_rows(., swap.df) %>%
-  mutate(dyadName = paste(state1, state2, sep = "_")) %>%
-  select(dyadName, state1, state2, contains(c("export", "import"))) %>%
-  arrange(dyadName)
+  bind_rows(., swap.df)
 
 # Monadic trade
 ## -------------------------------------------------------------------------- ##
@@ -187,8 +184,7 @@ trade.df <- trade_dyad.df %>%
 # Join to visa.df
 visa.df <- visa.df %>%
   left_join(y = trade.df, by = c("destination_iso3" = "state1", 
-                                 "nationality_iso3" = "state2")) %>%
-  select(destination_iso3, nationality_iso3, dyad_name = dyadName, everything())
+                                 "nationality_iso3" = "state2")) 
 
 ## -------------------------------------------------------------------------- ##
 ##                                 MOBILITY                                   ##
@@ -201,12 +197,14 @@ visa.df <- visa.df %>%
 #                                      on a Global Scale"
 # Note: Dataset was transformed from .xlsx to .csv to speed up importing
 ## -------------------------------------------------------------------------- ##
+# Function to create a dyad identifier 
+# from: https://stackoverflow.com/questions/52316998/create-unique-id-for-dyads-non-directional
+
 # (1) Load and filter to 2016
 gtm.df <- import("./data/independent variables/Global_Transnational_Mobility_dataset_v1.0.csv") %>%
   select(3:6) %>%
   filter(year == 2016) %>%
-  select(-year) %>%
-  mutate(dyadName = dyadId_fun(source_iso3, target_iso3))
+  select(-year)
 
 # (2) Join to visa.df
 # estimated trips are (~nearly) symmetric
@@ -219,3 +217,56 @@ visa.df <- visa.df %>%
   left_join(y = gtm.df, by = c("destination_iso3" = "target_iso3", 
                                "nationality_iso3" = "source_iso3")) %>%
   rename(trips_incoming = estimated_trips)
+
+# World Refugee Dataset
+# Variable:
+# Year: 2015 (latest)
+## -------------------------------------------------------------------------- ##
+# retrieved from: Marbach (2018), Link: https://github.com/sumtxt/wrd
+
+# COW -> iso3c
+custom.match <- c("345" = "SRB", "347" = "RKI", "667" = "PSE")
+
+# Load data and prepare variables: 
+# refugees from neighboring country, total N of refugees hosted
+wrd.df <- import("https://raw.githubusercontent.com/sumtxt/wrd/master/usedata/wrd_1.1.0.csv") %>%
+  filter(year == 2015,
+         asylum_ccode != 667) %>% # drop Palestine as host country
+  mutate(state1 = countrycode(sourcevar = asylum_ccode, origin = "cown", 
+                              destination = "iso3c", custom_match = custom.match),
+         state2 = countrycode(sourcevar = origin_ccode, origin = "cown", 
+                              destination = "iso3c", custom_match = custom.match)) %>%
+  group_by(state1) %>%
+  mutate(rfgs_incoming_agg = sum(ylinpol, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(state1, state2, rfgs_incoming = ylinpol, rfgs_incoming_agg) 
+
+# Join to border.df and compute refugees hosted per capita
+visa.df <- visa.df %>%
+  left_join(y = wrd.df, by = c("destination_iso3" = "state1", 
+                               "nationality_iso3" = "state2"))
+
+# Create column for refugees sent and total number of refugees in neigbouring country
+wrd.df <- wrd.df %>%
+  select(rfgs_outgoing = rfgs_incoming,
+         rfgs_outgoing_agg = rfgs_incoming_agg, 
+         state1 = state2,
+         state2 = state1)
+
+# Join to border.df and compute refugees hosted per capita
+visa.df <- visa.df %>%
+  left_join(y = wrd.df, by = c("destination_iso3" = "state1", 
+                               "nationality_iso3" = "state2"))
+
+# Create a dyad identifier variable
+## -------------------------------------------------------------------------- ##
+# Function to create a dyad identifier 
+# from: https://stackoverflow.com/questions/52316998/create-unique-id-for-dyads-non-directional
+
+dyadId_fun <- function(x,y) paste(sort(c(x, y)), collapse="_")
+dyadId_fun <- Vectorize(dyadId_fun)
+
+# Apply the function
+visa.df<- visa.df %>% 
+  mutate(dyad_name = dyadId_fun(destination_iso3, nationality_iso3)) %>%
+  as_tibble()
