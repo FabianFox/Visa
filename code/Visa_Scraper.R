@@ -176,7 +176,7 @@ visa.df <- import("./data/VWP_06_2020.RDS") %>%
   bind_rows(visa_added)
 
 # Save current result
-# export(visa.df, "./data/VWP_06_2020.RDS")
+# export(visa.df, "./data/VWP_07_2020.RDS")
 
 # Keep a save copy
 # export(visa.df, "C:/Users/guelzauf/Desktop/Visa_VWP_30-06-2020.RDS")
