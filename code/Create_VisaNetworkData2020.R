@@ -6,7 +6,7 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "igraph", "readxl", "states")
+pkg_attach2("tidyverse", "lubridate", "rio", "countrycode", "igraph", "readxl", "states")
 
                       #############################
                       #   Visa Network Data 2020  #
@@ -78,6 +78,14 @@ visa_2020.df[visa_2020.df$destination_iso3 == "GBR" &
 visa_2020.df[visa_2020.df$destination_iso3 == "ARE" & 
                visa_2020.df$nationality_iso3 == "QAT",
              c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
+
+# ZWE -> NPL is missing but provided in the database
+visa_2020.df <- visa_2020.df %>%
+  add_row(destination_iso3 = "ZWE", nationality_iso3 = "NPL", 
+          requirement = "Visa is required.\nPassport must be valid for 6 months on arrival.",
+          passport_requirement = "Passport must be valid for 6 months on arrival.",
+          visa_requirement = "Visa is required.", 
+          visa_requirement_binary = 0)
 
 # Transform into  a network format
 # Create an igraph graph from data frame
