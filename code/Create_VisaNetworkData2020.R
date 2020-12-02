@@ -14,7 +14,7 @@ pkg_attach2("tidyverse", "lubridate", "rio", "countrycode", "igraph", "readxl", 
 
 # Load raw data
 ### ------------------------------------------------------------------------###
-visa_2020.df <- import("./data/VWP_06_2020.RDS") %>%
+visa_2020.df <- import("./data/VWP_07_2020.RDS") %>%
   mutate(requirement = flatten_chr(requirement)) %>%
   ungroup()
 
@@ -74,18 +74,20 @@ visa_2020.df[visa_2020.df$destination_iso3 == "GBR" &
                visa_2020.df$nationality_iso3 == "NAM",
              c("visa_requirement", "visa_requirement_binary")] <- list("Visa is not required.", 1)
 
+# BLZ -> PAN (visa required)
+visa_2020.df[visa_2020.df$destination_iso3 == "BLZ" & 
+               visa_2020.df$nationality_iso3 == "PAN",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is not required.", 1)
+
 # ARE -> QAT (visa required)
 visa_2020.df[visa_2020.df$destination_iso3 == "ARE" & 
                visa_2020.df$nationality_iso3 == "QAT",
              c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
 
-# ZWE -> NPL is missing but provided in the database
-visa_2020.df <- visa_2020.df %>%
-  add_row(destination_iso3 = "ZWE", nationality_iso3 = "NPL", 
-          requirement = "Visa is required.\nPassport must be valid for 6 months on arrival.",
-          passport_requirement = "Passport must be valid for 6 months on arrival.",
-          visa_requirement = "Visa is required.", 
-          visa_requirement_binary = 0)
+# CHN -> TWN is missing but provided in the database
+visa_2020.df[visa_2020.df$destination_iso3 == "CHN" & 
+               visa_2020.df$nationality_iso3 == "TWN",
+             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
 
 # Transform into  a network format
 # Create an igraph graph from data frame
