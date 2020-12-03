@@ -9,7 +9,8 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", "tidygraph")
+pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", "tidygraph",
+            "igraph")
 
 # Load data
 ### ------------------------------------------------------------------------###
@@ -33,6 +34,9 @@ visa.graph <- set_edge_attr(visa.graph, "weight",
 visa.mat <- get.adjacency(visa.graph, sparse = FALSE, 
                                attr = "weight")
 
+# Igraph graph
+visa.graph <- graph_from_adjacency_matrix(visa.mat, mode = "directed")
+
 # Tidygraph
 visa.tbl <- as_tbl_graph(visa.mat)
 
@@ -42,6 +46,6 @@ visa.net <- network(visa.mat)
 # Descriptive stats
 ### ------------------------------------------------------------------------###
 # Triad census
-visa_triad.df <- triad.census(visa.mat) %>%
+visa_triad.df <- triad_census(visa.graph) %>%
   as_tibble() %>%
   pivot_longer(everything(), names_to = "triad", values_to = "number")
