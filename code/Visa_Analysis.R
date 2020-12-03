@@ -42,4 +42,6 @@ visa.net <- network(visa.mat)
 # Descriptive stats
 ### ------------------------------------------------------------------------###
 # Triad census
-visa_triad.df <- triad.census(visa.mat)
+visa_triad.df <- triad.census(visa.mat) %>%
+  as_tibble() %>%
+  pivot_longer(everything(), names_to = "triad", values_to = "number")
