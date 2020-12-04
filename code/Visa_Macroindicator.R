@@ -267,6 +267,10 @@ dyadId_fun <- function(x,y) paste(sort(c(x, y)), collapse="_")
 dyadId_fun <- Vectorize(dyadId_fun)
 
 # Apply the function
-visa.df<- visa.df %>% 
+visa.df <- visa.df %>% 
   mutate(dyad_name = dyadId_fun(destination_iso3, nationality_iso3)) %>%
   as_tibble()
+
+# Export data
+## -------------------------------------------------------------------------- ##
+# export(visa.df, "./data/visa_macro.rds")
