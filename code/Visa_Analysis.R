@@ -9,12 +9,12 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", "tidygraph",
-            "igraph")
+pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", 
+            "tidygraph", "igraph", "intergraph")
 
 # Load data
 ### ------------------------------------------------------------------------###
-visa.df <- import("./data/visa_2020.rds")
+visa.df <- import("./data/visa_macro.rds")
 
 # Network format(s)
 ### ------------------------------------------------------------------------###
@@ -37,12 +37,29 @@ visa.graph <- graph_from_data_frame(graph.df$edges,
 visa.mat <- get.adjacency(visa.graph, sparse = FALSE)
 
 # Tidygraph
-visa.tbl <- as_tbl_graph(visa.mat)
+visa.tbl <- as_tbl_graph(visa.graph)
 
 # Network
 # visa.net <- network(visa.mat)
 
+# Add node- and edge-attributes
+### ------------------------------------------------------------------------###
+visa.tbl <- visa.tbl %>%
+  activate(nodes) %>%
+  left_join(y = visa.df %>%
+              distinct(destination_iso3, .keep_all = TRUE) %>%
+              select(destination_iso3, capdist), 
+            by = c("name" = "destination_iso3"))
+
 # Descriptive stats
 ### ------------------------------------------------------------------------###
 # Triad census
-visa_triad.df <- triad.census(visa.graph)
+visa_triad.df <- visa.tbl %>%
+  triad.census()
+
+# ERGM
+### ------------------------------------------------------------------------###
+visa.net <- asNetwork(visa.tbl)
+
+# Model
+visa.net <- ergm(visa.net ~ edges)
