@@ -39,9 +39,6 @@ visa.mat <- get.adjacency(visa.graph, sparse = FALSE)
 # Tidygraph
 visa.tbl <- as_tbl_graph(visa.graph)
 
-# Network
-# visa.net <- network(visa.mat)
-
 # Add node- and edge-attributes
 ### ------------------------------------------------------------------------###
 visa.tbl <- visa.tbl %>%
@@ -62,4 +59,3 @@ visa_triad.df <- visa.tbl %>%
 visa.net <- asNetwork(visa.tbl)
 
 # Model
-visa.net <- ergm(visa.net ~ edges)
