@@ -19,32 +19,30 @@ visa.df <- import("./data/visa_2020.rds")
 # Network format(s)
 ### ------------------------------------------------------------------------###
 # Transform into network format
+graph.df <- tibble(
+  nodes = list(visa.df %>%
+                 pull(destination_iso3) %>%
+                 unique()),
+  edges = list(visa.df %>% 
+                 filter(visa_requirement_binary == 1) %>%
+                 select(from = destination_iso3, to = nationality_iso3)))
 
 # Igraph
 # Create an igraph graph from data frame
-visa.graph <- graph_from_data_frame(visa.df[,c("destination_iso3", 
-                                               "nationality_iso3")],
+visa.graph <- graph_from_data_frame(graph.df$edges, 
+                                    vertices = graph.df$nodes,
                                     directed = TRUE)
 
-# Set visa requirement as edge-attribute
-visa.graph <- set_edge_attr(visa.graph, "weight", 
-                            value = visa.df$visa_requirement_binary)
-
 # Transform into a matrix
-visa.mat <- get.adjacency(visa.graph, sparse = FALSE, 
-                               attr = "weight")
-
-# Igraph graph
-visa.graph <- graph_from_adjacency_matrix(visa.mat, mode = "directed")
+visa.mat <- get.adjacency(visa.graph, sparse = FALSE)
 
 # Tidygraph
 visa.tbl <- as_tbl_graph(visa.mat)
 
 # Network
-visa.net <- network(visa.mat)
+# visa.net <- network(visa.mat)
 
 # Descriptive stats
 ### ------------------------------------------------------------------------###
 # Triad census
-visa_triad.df <- triad.census(visa.graph) %>%
-  enframe()
+visa_triad.df <- triad.census(visa.graph)
