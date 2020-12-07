@@ -187,6 +187,31 @@ visa.df <- visa.df %>%
                                  "nationality_iso3" = "state2")) 
 
 ## -------------------------------------------------------------------------- ##
+##                                  POLITY                                    ##
+## -------------------------------------------------------------------------- ##
+
+# Custom match for PolityV data
+custom.match <- c("342" = "SRB", "348" = "MNE", "525" = "SSD", "529" = "ETH", 
+                  "818" = "VNM")
+
+# Load data
+polity.df <- import("http://www.systemicpeace.org/inscr/p5v2018.sav") %>%
+  filter(year == 2018) %>%
+  mutate(iso3c = countrycode(ccode, "cown", "iso3c", 
+                                        custom_match = custom.match)) %>%
+  select(iso3c, polity, polity2)
+
+# Join to visa.df 
+visa.df <- visa.df %>%
+  mutate(
+    # polity
+    dest_polity = polity.df[match(visa.df$destination_iso3, polity.df$iso3c),]$polity,
+    nat_polity = polity.df[match(visa.df$nationality_iso3, polity.df$iso3c),]$polity,
+    # polity2
+    dest_polity2 = polity.df[match(visa.df$destination_iso3, polity.df$iso3c),]$polity,
+    nat_polity2 = polity.df[match(visa.df$nationality_iso3, polity.df$iso3c),]$polity)
+
+## -------------------------------------------------------------------------- ##
 ##                                 MOBILITY                                   ##
 ## -------------------------------------------------------------------------- ##
 
