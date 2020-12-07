@@ -54,6 +54,33 @@ visa.tbl <- visa.tbl %>%
 visa_triad.df <- visa.tbl %>%
   triad.census()
 
+# Reciprocity
+visa_rcp.df <- visa.tbl %>%
+  reciprocity()
+
+# Degree distribution
+# Indegree
+visa_indegree.df <- visa.tbl %>%
+  degree(., mode = "in") %>%
+  enframe(name = "country", value = "indegree") %>%
+  arrange(desc(indegree))
+
+# Outdegree
+visa_outdegree.df <- visa.tbl %>%
+  degree(., mode = "out") %>%
+  enframe(name = "country", value = "outdegree")
+
+# In- and outdegree
+visa_degree.df <- visa_indegree.df %>%
+  left_join(y = visa_outdegree.df)
+
+# Gather descriptive measures
+visa_stats.df <- tibble(
+  triads = list(visa_triad.df),
+  reciprocity = list(visa_rcp.df),
+  indegree = list(degree.df)
+) 
+
 # ERGM
 ### ------------------------------------------------------------------------###
 visa.net <- asNetwork(visa.tbl)
