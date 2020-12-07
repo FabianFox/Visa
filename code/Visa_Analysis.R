@@ -50,6 +50,10 @@ visa.tbl <- visa.tbl %>%
 
 # Descriptive stats
 ### ------------------------------------------------------------------------###
+# Density
+visa_density.df <- visa.tbl %>%
+  graph.density()
+
 # Triad census
 visa_triad.df <- visa.tbl %>%
   triad.census()
@@ -74,12 +78,20 @@ visa_outdegree.df <- visa.tbl %>%
 visa_degree.df <- visa_indegree.df %>%
   left_join(y = visa_outdegree.df)
 
+# Mean in- and outdegree
+visa.tbl %>% degree(., mode = "in") %>%
+  mean()
+
 # Gather descriptive measures
 visa_stats.df <- tibble(
+  density = visa_density.df,
   triads = list(visa_triad.df),
   reciprocity = list(visa_rcp.df),
-  indegree = list(degree.df)
-) 
+  degree = list(visa_degree.df)
+) %>%
+  mutate(
+    degree_mean = mean(degree[[1]]$indegree)
+  )
 
 # ERGM
 ### ------------------------------------------------------------------------###
