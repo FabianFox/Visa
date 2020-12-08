@@ -56,11 +56,17 @@ visa_density.df <- visa.tbl %>%
 
 # Triad census
 visa_triad.df <- visa.tbl %>%
-  triad.census()
+  triad.census() %>%
+  as_tibble() %>%
+  mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
+                   "030T", "030C", "201", "120D", "120U", "120C", "210", "300"))
 
 # Direct clustering coefficient
 visa_cluster.df <- visa.mat %>%
-  DirectedClustering::ClustF(., type = "directed")
+  DirectedClustering::ClustF(., type = "directed") %>%
+  bind_rows() %>%
+  mutate(country = row.names(visa.mat)) %>%
+  select(country, everything())
 
 # Reciprocity
 visa_rcp.df <- visa.tbl %>%
@@ -91,7 +97,8 @@ visa_stats.df <- tibble(
   density = visa_density.df,
   triads = list(visa_triad.df),
   reciprocity = list(visa_rcp.df),
-  degree = list(visa_degree.df)
+  degree = list(visa_degree.df),
+  clustering = list(visa_cluster.df)
 ) %>%
   mutate(
     degree_mean = mean(degree[[1]]$indegree)
@@ -99,6 +106,11 @@ visa_stats.df <- tibble(
 
 # ERGM
 ### ------------------------------------------------------------------------###
+# Notes:
+# - edge/dyadcov need attributes that match the modeled network
+
+# Turn visa data into network-format
 visa.net <- asNetwork(visa.tbl)
 
 # Model
+model <- ergm(visa.net ~ edges + edgecov(con_net, "contiguity"))
