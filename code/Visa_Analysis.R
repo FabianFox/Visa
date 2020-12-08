@@ -58,6 +58,10 @@ visa_density.df <- visa.tbl %>%
 visa_triad.df <- visa.tbl %>%
   triad.census()
 
+# Direct clustering coefficient
+visa_cluster.df <- visa.mat %>%
+  DirectedClustering::ClustF(., type = "directed")
+
 # Reciprocity
 visa_rcp.df <- visa.tbl %>%
   reciprocity()
