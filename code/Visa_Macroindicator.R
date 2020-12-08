@@ -100,6 +100,19 @@ cap_dist.df <- import("./data/capital_distances.rds") %>%
 visa.df <- visa.df %>%
   left_join(y = cap_dist.df)
 
+# Network format
+cap_dist.graph <- graph_from_data_frame(visa.df %>%
+                                          select(from = destination_iso3, 
+                                                 to = nationality_iso3,
+                                                 weight = capdist),
+                                        vertices = visa.df %>%
+                                          pull(destination_iso3) %>%
+                                          unique(), 
+                                        directed = FALSE)
+
+# Transform into a matrix
+cap_dist.mat <- get.adjacency(cap_dist.graph, sparse = FALSE, attr = "weight") 
+
 ## -------------------------------------------------------------------------- ##
 ##                                 ECONOMY                                    ##
 ## -------------------------------------------------------------------------- ##
@@ -321,3 +334,6 @@ visa.df <- visa.df %>%
 
 # Contiguity matrix
 # export(contiguity.mat, "./data/contiguity_mat.rds")
+
+# Capital distances matrix
+# export(cap_dist.mat, "./data/cap_dist_mat.rds")
