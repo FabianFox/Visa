@@ -49,7 +49,25 @@ contdird.df <- contdird.df %>%
 
 # Join to visa.df
 visa.df <- visa.df %>%
-  left_join(y = contdird.df)
+  left_join(y = contdird.df) %>%
+  mutate(contiguity = replace_na(contiguity, 0))
+
+# Contiguity in network format
+# Create an igraph graph from data frame
+contiguity.graph <- graph_from_data_frame(visa.df %>%
+                                            filter(contiguity == 1) %>%
+                                            select(from = destination_iso3, 
+                                                   to = nationality_iso3),
+                                          vertices = visa.df %>%
+                                            pull(destination_iso3) %>%
+                                            unique(), 
+                                          directed = FALSE)
+
+# Transform into a matrix
+contiguity.mat <- get.adjacency(contiguity.graph, sparse = FALSE) 
+
+# Directed format sums contiguity scores
+contiguity.mat[contiguity.mat == 2] <- 1
 
 # Load data:
 # - cshapes
@@ -298,4 +316,8 @@ visa.df <- visa.df %>%
 
 # Export data
 ## -------------------------------------------------------------------------- ##
+# Main data
 # export(visa.df, "./data/visa_macro.rds")
+
+# Contiguity matrix
+# export(contiguity.mat, "./data/contiguity_mat.rds")
