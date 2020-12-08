@@ -314,6 +314,12 @@ visa.df <- visa.df %>%
   left_join(y = wrd.df, by = c("destination_iso3" = "state1", 
                                "nationality_iso3" = "state2"))
 
+## -------------------------------------------------------------------------- ##
+##                                 SECURITY                                   ##
+## -------------------------------------------------------------------------- ##
+
+
+
 # Create a dyad identifier variable
 ## -------------------------------------------------------------------------- ##
 # Function to create a dyad identifier 
