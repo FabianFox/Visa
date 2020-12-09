@@ -49,7 +49,8 @@ visa.tbl <- as_tbl_graph(visa.graph)
 # ERGMs do not deal with missing data satisfactory. For now, quick imputation.
 visa_imp.df <- visa.df %>%
   distinct(destination_iso3, .keep_all = TRUE) %>%
-  select(destination_iso3, dest_gdp_median, dest_polity2)
+  select(destination_iso3, dest_gdp_median, dest_polity2) %>%
+  mutate(dest_polity2 = if_else(!between(dest_polity2, -10, 10), NA_real_, dest_polity2))
 
 # Distribution of NA
 visa_imp.df %>%
@@ -73,16 +74,14 @@ visa_imp.df <- mice(visa_imp.df, m = 50, predictorMatrix = pred.mat,
                     method = imp_method, print = FALSE)              # set.seed
 
 # Return first imputed dataset
-visa.imp.df <- complete(visa_imp.df)
+visa_imp.df <- complete(visa_imp.df)
 
 ### ------------------------------- ###
 
 # Add node- and edge-attributes
 visa.tbl <- visa.tbl %>%
   activate(nodes) %>%
-  left_join(y = visa.df %>%
-              distinct(destination_iso3, .keep_all = TRUE) %>%
-              select(destination_iso3, capdist), 
+  left_join(y = visa_imp.df, 
             by = c("name" = "destination_iso3"))
 
 # Descriptive stats
@@ -150,4 +149,15 @@ visa_stats.df <- tibble(
 visa.net <- asNetwork(visa.tbl)
 
 # Model
-model <- ergm(visa.net ~ edges + edgecov())
+model <- ergm(visa.net ~ edges + 
+                absdiff("dest_gdp_median") +
+                absdiff("dest_polity2") +
+                edgecov(contiguity.mat) + 
+                gwidegree(decay = .1, fixed = TRUE) + 
+                gwodegree(.1, fixed = TRUE) +
+                gwesp(.1, fixed = TRUE) +
+                mutual + 
+                twopath + 
+                ctriple +
+                gwdsp(.1, fixed = TRUE))
+  
