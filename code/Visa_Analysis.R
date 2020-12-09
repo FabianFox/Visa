@@ -10,7 +10,7 @@
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
 pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", 
-            "tidygraph", "igraph", "intergraph")
+            "tidygraph", "igraph", "intergraph", "mice")
 
 # Load data
 ### ------------------------------------------------------------------------###
@@ -20,9 +20,11 @@ visa.df <- import("./data/visa_macro.rds")
 ### ------------------------------------------------------------------------###
 # Transform into network format
 graph.df <- tibble(
+  # actors: states
   nodes = list(visa.df %>%
                  pull(destination_iso3) %>%
                  unique()),
+  # relationships: visa waivers
   edges = list(visa.df %>% 
                  filter(visa_requirement_binary == 1) %>%
                  select(from = destination_iso3, to = nationality_iso3)))
@@ -41,6 +43,41 @@ visa.tbl <- as_tbl_graph(visa.graph)
 
 # Add node- and edge-attributes
 ### ------------------------------------------------------------------------###
+
+# Missing data
+### ------------------------------- ###
+# ERGMs do not deal with missing data satisfactory. For now, quick imputation.
+visa_imp.df <- visa.df %>%
+  distinct(destination_iso3, .keep_all = TRUE) %>%
+  select(destination_iso3, dest_gdp_median, dest_polity2)
+
+# Distribution of NA
+visa_imp.df %>%
+  summarise_all(~sum(is.na(.)) / length(.) * 100)
+
+# Run an "empty" imputation and adjust elements
+mice.mat <- mice(visa_imp.df, maxit = 0)
+
+# Elements that need to be adjusted
+# Predictor matrix
+pred.mat <- mice.mat$predictorMatrix
+
+# Do not use for imputation
+pred.mat[, c("destination_iso3")] <- 0
+
+# Edit imputation method
+imp_method <- mice.mat$method
+
+# Create imputed datasets
+visa_imp.df <- mice(visa_imp.df, m = 50, predictorMatrix = pred.mat, 
+                    method = imp_method, print = FALSE)              # set.seed
+
+# Return first imputed dataset
+visa.imp.df <- complete(visa_imp.df)
+
+### ------------------------------- ###
+
+# Add node- and edge-attributes
 visa.tbl <- visa.tbl %>%
   activate(nodes) %>%
   left_join(y = visa.df %>%
@@ -113,4 +150,4 @@ visa_stats.df <- tibble(
 visa.net <- asNetwork(visa.tbl)
 
 # Model
-model <- ergm(visa.net ~ edges + edgecov(con_net, "contiguity"))
+model <- ergm(visa.net ~ edges + edgecov())
