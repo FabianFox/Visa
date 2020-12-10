@@ -50,7 +50,8 @@ visa.tbl <- as_tbl_graph(visa.graph)
 visa_imp.df <- visa.df %>%
   distinct(destination_iso3, .keep_all = TRUE) %>%
   select(destination_iso3, dest_gdp_median, dest_polity2) %>%
-  mutate(dest_polity2 = if_else(!between(dest_polity2, -10, 10), NA_real_, dest_polity2))
+  mutate(dest_gdp_median = log(dest_gdp_median),
+         dest_polity2 = if_else(!between(dest_polity2, -10, 10), NA_real_, dest_polity2))
 
 # Distribution of NA
 visa_imp.df %>%
@@ -159,5 +160,17 @@ model <- ergm(visa.net ~ edges +
                 mutual + 
                 twopath + 
                 ctriple +
-                gwdsp(.1, fixed = TRUE))
+                gwdsp(.1, fixed = TRUE),
+              control = control.ergm(seed = 2020, 
+                                     parallel = 3, 
+                                     parallel.type = "PSOCK"),
+              verbose = TRUE)
   
+# ergm controls
+# Parallel computing
+# ergm(control = control.ergm(seed = 2020, parallel = 3, parallel.type = "PSOCK"))
+
+# Additional controls (with defaults, cf. Goodreau et al. 2008)
+# MCMC.interval = 1024
+# MCMC.burnin = MCMC.interval * 16
+# MCMC.samplesize = 1024
