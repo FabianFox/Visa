@@ -9,7 +9,7 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "wbstats")
+pkg_attach2("tidyverse", "rio", "countrycode", "wbstats", "igraph")
 
 # Load data
 ### ------------------------------------------------------------------------###
