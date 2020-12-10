@@ -9,7 +9,7 @@
 # Load/install packages
 ### ------------------------------------------------------------------------###
 if (!require("xfun")) install.packages("xfun")
-pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "statnet", "ggraph", 
+pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "ggraph", 
             "tidygraph", "igraph", "intergraph", "mice")
 
 # Load data
@@ -146,21 +146,27 @@ visa_stats.df <- tibble(
 # Notes:
 # - edge/dyadcov need attributes that match the modeled network
 
+# Load statnet
+pkg_attach2("statnet")
+
 # Turn visa data into network-format
 visa.net <- asNetwork(visa.tbl)
+
+# Import contiguity network
+contiguity.mat <- import("./data/contiguity_mat.rds")
 
 # Model
 model <- ergm(visa.net ~ edges + 
                 absdiff("dest_gdp_median") +
                 absdiff("dest_polity2") +
                 edgecov(contiguity.mat) + 
-                gwidegree(decay = .1, fixed = TRUE) + 
-                gwodegree(.1, fixed = TRUE) +
-                gwesp(.1, fixed = TRUE) +
+                gwidegree(decay = .1, fixed = FALSE) + 
+                gwodegree(.1, fixed = FALSE) +
+                gwesp(.1, fixed = FALSE) +
                 mutual + 
                 twopath + 
                 ctriple +
-                gwdsp(.1, fixed = TRUE),
+                gwdsp(.1, fixed = FALSE),
               control = control.ergm(seed = 2020, 
                                      parallel = 3, 
                                      parallel.type = "PSOCK"),
