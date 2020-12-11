@@ -146,6 +146,9 @@ visa_stats.df <- tibble(
 # Notes:
 # - edge/dyadcov need attributes that match the modeled network
 
+# load statnet
+pkg_attach2("statnet")
+
 # Turn visa data into network-format
 visa.net <- asNetwork(visa.tbl)
 
