@@ -403,7 +403,7 @@ visa_eu.df <- visa_eu.df %>%
 # Export data
 ## -------------------------------------------------------------------------- ##
 # Main data
-export(visa.df, "./data/visa_main.rds")
+export(visa_eu.df, "./data/visa_main.rds")
 
 # Node attributes
 export(states.df, "./data/node_attributes.rds")
