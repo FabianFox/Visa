@@ -31,14 +31,8 @@ visa_eu.df <- visa.df %>%
   distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
   filter(!(destination_iso3 == "EU" & nationality_iso3 == "EU")) 
 
-# Add macro-indicators
+# Edge attributes
 ### ------------------------------------------------------------------------ ###
-states.df <- visa_eu.df %>%
-  distinct(destination_iso3)
-
-## -------------------------------------------------------------------------- ##
-##                               GEOGRAPHY                                    ##
-## -------------------------------------------------------------------------- ##
 
 # Load data:
 # - Direct Contiguity
@@ -49,7 +43,7 @@ states.df <- visa_eu.df %>%
 
 # Latest observation: 2016
 contdird.df <- import(file = "./data/independent variables/contdird.csv", 
-                   header = TRUE, stringsAsFactors = FALSE) %>%
+                      header = TRUE, stringsAsFactors = FALSE) %>%
   filter(year == 2016) %>%
   select(destination_iso3 = state1no, 
          nationality_iso3 = state2no, 
@@ -103,14 +97,13 @@ contiguity.mat[contiguity.mat == 2] <- 1
 # see: http://nils.weidmann.ws/projects/cshapes/r-package.html
 # - Accessed: 2020/11/11
 ## -------------------------------------------------------------------------- ##
-
 # Distance between capitals
 # cap_dist.df <- cshapes::distlist(date("2015-01-01"), type = "capdist")
 
 # Export/import
 # export(cap_dist.df, "./data/capital_distances.rds")
 
-# Custom dict
+# Custom dictionary
 # Note: Serbia has a different cown in GW than in COW
 custom.gw <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
 custom.eu <- custom.match[-2] # Remove BEL
@@ -125,9 +118,9 @@ cap_dist.df <- import("./data/capital_distances.rds") %>%
                                         destination = "iso3c", 
                                         custom_match = custom.gw),
          destination_iso3 = if_else(destination_iso3 %in% custom.eu, 
-                             "EU", destination_iso3),
+                                    "EU", destination_iso3),
          nationality_iso3 = if_else(nationality_iso3 %in% custom.eu, 
-                           "EU", nationality_iso3)) %>%
+                                    "EU", nationality_iso3)) %>%
   distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
   filter(!(destination_iso3 == "EU" | nationality_iso3 == "EU")) %>%
   mutate(destination_iso3 = if_else(destination_iso3 == "BEL", "EU", destination_iso3),
@@ -151,9 +144,41 @@ cap_dist.graph <- graph_from_data_frame(visa_eu.df %>%
 # Transform into a matrix
 cap_dist.mat <- get.adjacency(cap_dist.graph, sparse = FALSE, attr = "weight") 
 
-## -------------------------------------------------------------------------- ##
-##                                 ECONOMY                                    ##
-## -------------------------------------------------------------------------- ##
+# Node attributes
+### ------------------------------------------------------------------------ ###
+states.df <- visa_eu.df %>%
+  distinct(destination_iso3)
+
+# PolityV data
+### ------------------------------------------------------------------------ ###
+# PolityV project
+# Year: 2018 
+# Custom match for PolityV data
+custom.pol <- c("342" = "SRB", "348" = "MNE", "525" = "SSD", "529" = "ETH", 
+                "818" = "VNM")
+# Load data
+polity.df <- import("http://www.systemicpeace.org/inscr/p5v2018.sav") %>%
+  filter(year == 2018) %>%
+  mutate(iso3c = countrycode(ccode, "cown", "iso3c", 
+                             custom_match = custom.pol)) %>%
+  select(iso3c, polity, polity2) %>%
+  mutate(iso3c = if_else(iso3c %in% custom.match, "EU", iso3c)) %>%
+  group_by(iso3c) %>%
+  # ISL and MLT are missing
+  mutate(n = n(),
+         polity = sum(polity, na.rm = TRUE) / n,
+         polity2 = sum(polity2, na.rm = TRUE) / n) %>%
+  ungroup() %>%
+  distinct(iso3c, .keep_all = TRUE) %>% 
+  select(-n)
+
+# Join to visa.df 
+states.df <- states.df %>%
+  left_join(y = polity.df, by = c("destination_iso3" = "iso3c"))
+
+# Find missing values (N = 6 + MLT & ISL)
+states.df %>% 
+  filter(across(c(polity, polity2), ~is.na(.)))
 
 # World Bank Indicator
 # GDP per capita, PPP (current international $) - "NY.GDP.PCAP.PP.CD"
@@ -211,12 +236,17 @@ wb.info <- wb.info %>%
          pop_mean = sum(pop_mean),
          gdp_median = sum(gdp_median) / n,
          gdp_mean = sum(gdp_mean) / n) %>%
+  ungroup() %>%
   distinct(iso3c, .keep_all = TRUE) %>% 
   select(-n)
 
 # Join to visa.df
 states.df <- states.df %>%
   left_join(y = wb.info, by = c("destination_iso3" = "iso3c"))
+
+## -------------------------------------------------------------------------- ##
+#  NEEDS TO BE ADJUSTED
+## -------------------------------------------------------------------------- ##
 
 # COW: Trade v4.0
 # Variable: flow1, flow2
@@ -280,31 +310,6 @@ trade.df <- trade_dyad.df %>%
 visa.df <- visa.df %>%
   left_join(y = trade.df, by = c("destination_iso3" = "state1", 
                                  "nationality_iso3" = "state2")) 
-
-## -------------------------------------------------------------------------- ##
-##                                  POLITY                                    ##
-## -------------------------------------------------------------------------- ##
-
-# Custom match for PolityV data
-custom.match <- c("342" = "SRB", "348" = "MNE", "525" = "SSD", "529" = "ETH", 
-                  "818" = "VNM")
-
-# Load data
-polity.df <- import("http://www.systemicpeace.org/inscr/p5v2018.sav") %>%
-  filter(year == 2018) %>%
-  mutate(iso3c = countrycode(ccode, "cown", "iso3c", 
-                                        custom_match = custom.match)) %>%
-  select(iso3c, polity, polity2)
-
-# Join to visa.df 
-visa.df <- visa.df %>%
-  mutate(
-    # polity
-    dest_polity = polity.df[match(visa.df$destination_iso3, polity.df$iso3c),]$polity,
-    nat_polity = polity.df[match(visa.df$nationality_iso3, polity.df$iso3c),]$polity,
-    # polity2
-    dest_polity2 = polity.df[match(visa.df$destination_iso3, polity.df$iso3c),]$polity,
-    nat_polity2 = polity.df[match(visa.df$nationality_iso3, polity.df$iso3c),]$polity)
 
 ## -------------------------------------------------------------------------- ##
 ##                                 MOBILITY                                   ##
@@ -382,8 +387,6 @@ visa.df <- visa.df %>%
 ##                                 SECURITY                                   ##
 ## -------------------------------------------------------------------------- ##
 
-
-
 # Create a dyad identifier variable
 ## -------------------------------------------------------------------------- ##
 # Function to create a dyad identifier 
@@ -393,17 +396,25 @@ dyadId_fun <- function(x,y) paste(sort(c(x, y)), collapse="_")
 dyadId_fun <- Vectorize(dyadId_fun)
 
 # Apply the function
-visa.df <- visa.df %>% 
+visa_eu.df <- visa_eu.df %>% 
   mutate(dyad_name = dyadId_fun(destination_iso3, nationality_iso3)) %>%
   as_tibble()
 
 # Export data
 ## -------------------------------------------------------------------------- ##
 # Main data
-# export(visa.df, "./data/visa_macro.rds")
+export(visa.df, "./data/visa_main.rds")
 
-# Contiguity matrix
-# export(contiguity.mat, "./data/contiguity_mat.rds")
+# Node attributes
+export(states.df, "./data/node_attributes.rds")
 
-# Capital distances matrix
-# export(cap_dist.mat, "./data/cap_dist_mat.rds")
+# Edge attributes
+edge.df <- tibble(
+  type = c("contiguity", "capdist"),
+  network = c(
+    list(contiguity.mat),
+    list(cap_dist.mat)
+  ))
+
+# Export
+export(edge.df, "./data/edge_attributes.rds")
