@@ -14,7 +14,7 @@ pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "ggraph",
 
 # Load data
 ### ------------------------------------------------------------------------###
-visa.df <- import("./data/visa_macro.rds")
+visa.df <- import("./data/visa_main.rds")
 
 # Network format(s)
 ### ------------------------------------------------------------------------###
@@ -44,14 +44,18 @@ visa.tbl <- as_tbl_graph(visa.graph)
 # Add node- and edge-attributes
 ### ------------------------------------------------------------------------###
 
+# Load data
+node_att.df <- import("./data/node_attributes.rds")
+edge_att.df <- import("./data/edge_attributes.rds")
+
 # Missing data
 ### ------------------------------- ###
 # ERGMs do not deal with missing data satisfactory. For now, quick imputation.
-visa_imp.df <- visa.df %>%
-  distinct(destination_iso3, .keep_all = TRUE) %>%
-  select(destination_iso3, dest_gdp_median, dest_polity2) %>%
-  mutate(dest_gdp_median = log(dest_gdp_median),
-         dest_polity2 = if_else(!between(dest_polity2, -10, 10), NA_real_, dest_polity2))
+visa_imp.df <- node_att.df %>%
+  select(destination_iso3, gdp_mean, polity2) %>%
+  mutate(gdp_log = log(gdp_mean),
+         polity2 = if_else(!between(polity2, -10, 10), NA_real_, polity2)) %>%
+  select(-gdp_mean)
 
 # Distribution of NA
 visa_imp.df %>%
@@ -153,25 +157,20 @@ pkg_attach2("statnet")
 visa.net <- asNetwork(visa.tbl)
 
 # Import contiguity network
-contiguity.mat <- import("./data/contiguity_mat.rds") %>%
-  as.matrix()
+contiguity.mat <- edge_att.df %>%
+  filter(type == "contiguity") %>%
+  pull(network) %>%
+  .[[1]]
 
 # Model
-model <- statnet::ergm(visa.net ~ edges + 
-                         absdiff("dest_gdp_median") +
-                         absdiff("dest_polity2") +
-                         edgecov(contiguity.mat) + 
-                         gwidegree(decay = .1, fixed = FALSE) + 
-                         gwodegree(.1, fixed = FALSE) +
-                         gwesp(.1, fixed = FALSE) +
-                         mutual + 
-                         twopath + 
-                         ctriple +
-                         gwdsp(.1, fixed = FALSE),
-                       control = control.ergm(seed = 2020, 
-                                              parallel = 3, 
-                                              parallel.type = "PSOCK"),
-                       verbose = TRUE)
+model <- ergm(visa.net ~ edges + 
+                absdiff("gdp_log") +
+                absdiff("polity2") +
+                edgecov(contiguity.mat),
+              control = control.ergm(seed = 2020, 
+                                     parallel = 3, 
+                                     parallel.type = "PSOCK"),
+              verbose = TRUE)
   
 # ergm controls
 # Parallel computing
