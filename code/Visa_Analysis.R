@@ -153,7 +153,8 @@ pkg_attach2("statnet")
 visa.net <- asNetwork(visa.tbl)
 
 # Import contiguity network
-contiguity.mat <- import("./data/contiguity_mat.rds")
+contiguity.mat <- import("./data/contiguity_mat.rds") %>%
+  as.matrix()
 
 # Model
 model <- ergm(visa.net ~ edges + 
@@ -180,3 +181,6 @@ model <- ergm(visa.net ~ edges +
 # MCMC.interval = 1024
 # MCMC.burnin = MCMC.interval * 16
 # MCMC.samplesize = 1024
+
+# Save output of ergm
+# export(model1.cef, "./output/model1_cef.rds")
