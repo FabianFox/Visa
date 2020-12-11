@@ -7,13 +7,34 @@
 # edited in Create_VisaNetworkData2020.R
 
 # Load/install packages
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 if (!require("xfun")) install.packages("xfun")
 pkg_attach2("tidyverse", "rio", "countrycode", "wbstats", "igraph")
 
 # Load data
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 visa.df <- import("./data/visa_2020.rds")
+
+# Merge EFTA/EU into a single node
+### ------------------------------------------------------------------------ ###
+# Custom match for EFTA/EU member states
+custom.match <- codelist$iso3c[!is.na(codelist$eu28 == "EU")] 
+# Add EFTA countries in data set
+custom.match <- c(custom.match, "CHE", "ISL", "LIE","NOR")
+
+# Merge EFTA/EU member states
+visa_eu.df <- visa.df %>%
+  mutate(destination_iso3 = if_else(destination_iso3 %in% custom.match, 
+                                    "EU", destination_iso3),
+         nationality_iso3 = if_else(nationality_iso3 %in% custom.match, 
+                                    "EU", nationality_iso3)) %>%
+  distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
+  filter(!(destination_iso3 == "EU" & nationality_iso3 == "EU")) 
+
+# Add macro-indicators
+### ------------------------------------------------------------------------ ###
+states.df <- visa_eu.df %>%
+  distinct(destination_iso3)
 
 ## -------------------------------------------------------------------------- ##
 ##                               GEOGRAPHY                                    ##
@@ -30,35 +51,43 @@ visa.df <- import("./data/visa_2020.rds")
 contdird.df <- import(file = "./data/independent variables/contdird.csv", 
                    header = TRUE, stringsAsFactors = FALSE) %>%
   filter(year == 2016) %>%
-  select(destination_iso3 = state1no, nationality_iso3 = state2no, contiguity = conttype) %>%
+  select(destination_iso3 = state1no, 
+         nationality_iso3 = state2no, 
+         contiguity = conttype) %>%
   filter(contiguity <= 3)
 
 # Turn Correlates of War IDs into ISO3 codes
 # (1) Some custom matches, i.e. 347 (Kosovo) = XKX, 345 (Serbia) = SRB 
-custom.match <- c("345" = "SRB", "347" = "RKI")
+custom.cow <- c("345" = "SRB", "347" = "RKI")
 
 # (2) Transform
 contdird.df <- contdird.df %>%
   mutate(destination_iso3 = countrycode(sourcevar = destination_iso3, origin = "cown", 
                                         destination = "iso3c", 
-                                        custom_match = custom.match),
+                                        custom_match = custom.cow),
          nationality_iso3 = countrycode(sourcevar = nationality_iso3, 
                                         origin = "cown", 
                                         destination = "iso3c", 
-                                        custom_match = custom.match)) 
+                                        custom_match = custom.cow),
+         destination_iso3 = if_else(destination_iso3 %in% custom.match, 
+                                    "EU", destination_iso3),
+         nationality_iso3 = if_else(nationality_iso3 %in% custom.match, 
+                                    "EU", nationality_iso3)) %>%
+  distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
+  filter(!(destination_iso3 == "EU" & nationality_iso3 == "EU")) 
 
 # Join to visa.df
-visa.df <- visa.df %>%
+visa_eu.df <- visa_eu.df %>%
   left_join(y = contdird.df) %>%
   mutate(contiguity = replace_na(contiguity, 0))
 
 # Contiguity in network format
 # Create an igraph graph from data frame
-contiguity.graph <- graph_from_data_frame(visa.df %>%
+contiguity.graph <- graph_from_data_frame(visa_eu.df %>%
                                             filter(contiguity == 1) %>%
                                             select(from = destination_iso3, 
                                                    to = nationality_iso3),
-                                          vertices = visa.df %>%
+                                          vertices = visa_eu.df %>%
                                             pull(destination_iso3) %>%
                                             unique(), 
                                           directed = FALSE)
@@ -83,29 +112,38 @@ contiguity.mat[contiguity.mat == 2] <- 1
 
 # Custom dict
 # Note: Serbia has a different cown in GW than in COW
-custom.match <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
+custom.gw <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
+custom.eu <- custom.match[-2] # Remove BEL
 
 # Turn gwcode into iso3c
 cap_dist.df <- import("./data/capital_distances.rds") %>%
   filter(ccode1 != ccode2) %>% # no-self ties
   mutate(destination_iso3 = countrycode(sourcevar = ccode1, origin = "cown", 
                                         destination = "iso3c", 
-                                        custom_match = custom.match),
+                                        custom_match = custom.gw),
          nationality_iso3 = countrycode(sourcevar = ccode2, origin = "cown", 
                                         destination = "iso3c", 
-                                        custom_match = custom.match)) %>%
-  select(-ccode1, -ccode2)
+                                        custom_match = custom.gw),
+         destination_iso3 = if_else(destination_iso3 %in% custom.eu, 
+                             "EU", destination_iso3),
+         nationality_iso3 = if_else(nationality_iso3 %in% custom.eu, 
+                           "EU", nationality_iso3)) %>%
+  distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
+  filter(!(destination_iso3 == "EU" | nationality_iso3 == "EU")) %>%
+  mutate(destination_iso3 = if_else(destination_iso3 == "BEL", "EU", destination_iso3),
+         nationality_iso3 = if_else(nationality_iso3 == "BEL", "EU", nationality_iso3)) %>%
+  select(-ccode1, -ccode2) 
 
 # Join to visa.df
-visa.df <- visa.df %>%
+visa_eu.df <- visa_eu.df %>%
   left_join(y = cap_dist.df)
 
 # Network format
-cap_dist.graph <- graph_from_data_frame(visa.df %>%
+cap_dist.graph <- graph_from_data_frame(visa_eu.df %>%
                                           select(from = destination_iso3, 
                                                  to = nationality_iso3,
                                                  weight = capdist),
-                                        vertices = visa.df %>%
+                                        vertices = visa_eu.df %>%
                                           pull(destination_iso3) %>%
                                           unique(), 
                                         directed = FALSE)
@@ -139,20 +177,46 @@ wb.info <- wb_data(country = unique(visa.df$destination_iso3),
 wb.info %>% 
   filter_all(any_vars(is.na(.)))
 
-# Replace missing values (i.e. CIA World Factbook)
+# Replace missing values (from CIA World Factbook, accessed: 2020/12/11)
+# CUB: GDP: 12300 (2016) / 12200 (2015)
+wb.info[wb.info$iso3c == "CUB", c("gdp_median", "gdp_mean")] <- list(12300, 12300)
+# ERI: Population: 6081196 
+#      GDP: 1600 (2017) / 1500 (2016) / 1500 (2015)
+wb.info[wb.info$iso3c == "ERI", c("pop_median", "pop_mean", "gdp_median", "gdp_mean")] <- list(6081196, 6081196, 1600, 1600)
+# PRK: GDP: 1700 (2015.) 
+wb.info[wb.info$iso3c == "PRK", c("gdp_median", "gdp_mean")] <- list(1700, 1700)
+# SOM
+# NA
+# SSD: GDP: 1600 (2017) / 1700 (2016) / 2100 (2015)
+wb.info[wb.info$iso3c == "SSD", c("gdp_median", "gdp_mean")] <- list(1600, 1600)
+# SYR: GDP: 2900 (2015)
+wb.info[wb.info$iso3c == "SYR", c("gdp_median", "gdp_mean")] <- list(2900, 2900)
+# VEN: GDP: 12500 (2017) / 14400 (2016) / 17300 (2015) 
+wb.info[wb.info$iso3c == "VEN", c("gdp_median", "gdp_mean")] <- list(12500, 12500)
+# YEM: GDP: 2500 (2017) / 2700 (2016) / 3200 (2015) 
+wb.info[wb.info$iso3c == "YEM", c("gdp_median", "gdp_mean")] <- list(2500, 2500)
+# No data on TWN
+# TWN: Population: 23603049
+#      GDP: 50500 (2017) / 49100 (2016) / 48500 (2015) 
+wb.info <- wb.info %>%
+  add_row(pop_median = 23603049, pop_mean = 23603049, 
+          gdp_median = 50500, gdp_mean = 50500, iso3c = "TWN")
+
+# Create variables for EU
+wb.info <- wb.info %>%
+  mutate(iso3c = if_else(iso3c %in% custom.match, "EU", iso3c)) %>%
+  group_by(iso3c) %>%
+  mutate(n = n(),
+         pop_median = sum(pop_median),
+         pop_mean = sum(pop_mean),
+         gdp_median = sum(gdp_median) / n,
+         gdp_mean = sum(gdp_mean) / n) %>%
+  distinct(iso3c, .keep_all = TRUE) %>% 
+  select(-n)
 
 # Join to visa.df
-visa.df <- visa.df %>%
-  mutate(
-    dest_pop_median = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$pop_median,
-    dest_pop_mean = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$pop_mean,
-    nat_pop_median = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$pop_median,
-    nat_pop_mean = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$pop_mean,
-    
-    dest_gdp_median = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$gdp_median,
-    dest_gdp_mean = wb.info[match(visa.df$destination_iso3, wb.info$iso3c),]$gdp_mean,
-    nat_gdp_median = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$gdp_median,
-    nat_gdp_mean = wb.info[match(visa.df$nationality_iso3, wb.info$iso3c),]$gdp_mean)
+states.df <- states.df %>%
+  left_join(y = wb.info, by = c("destination_iso3" = "iso3c"))
 
 # COW: Trade v4.0
 # Variable: flow1, flow2
