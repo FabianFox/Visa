@@ -2,6 +2,7 @@
 /data
 /figures
 /text
+/output
 
 # History files
 .Rhistory
