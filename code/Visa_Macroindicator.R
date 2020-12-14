@@ -141,8 +141,8 @@ trade_dyad.df <- trade_dyad.df %>%
 # (3a) Trade in EU
 trade_eu.df <- trade_dyad.df %>%
   filter(state1 == "EU" & state2 == "EU") %>%
-  summarise(import = sum(import, na.rm = TRUE),
-            export = sum(export, na.rm = TRUE))
+  summarise(import = sum(import),
+            export = sum(export))
 
 # (3b) Trade with EFTA/EU as single actor
 trade_dyad.df <- trade_dyad.df %>%
@@ -151,7 +151,8 @@ trade_dyad.df <- trade_dyad.df %>%
   mutate(import = sum(import),
          export = sum(export)) %>%
   ungroup() %>%
-  distinct(state1, state2, .keep_all = TRUE)
+  distinct(state1, state2, .keep_all = TRUE) %>%
+  select(-year)
 
 # Monadic trade
 ## -------------------------------------------------------------------------- ##
@@ -186,6 +187,11 @@ trade.df <- trade_dyad.df %>%
          export_share = export / export_total * 100,
          trade_interdependence = (import + export) / (import_total + export_total))
 
+# Join to visa_eu.df
+visa_eu.df <- visa_eu.df %>%
+  left_join(y = trade_dyad.df, 
+            by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
+
 # World Refugee Dataset
 # Variable:
 # Year: 2015 (latest)
@@ -201,30 +207,33 @@ wrd.df <- import("https://raw.githubusercontent.com/sumtxt/wrd/master/usedata/wr
   filter(year == 2015,
          asylum_ccode != 667) %>% # drop Palestine as host country
   mutate(state1 = countrycode(sourcevar = asylum_ccode, origin = "cown", 
-                              destination = "iso3c", custom_match = custom.match),
+                              destination = "iso3c", custom_match = custom.wrd),
          state2 = countrycode(sourcevar = origin_ccode, origin = "cown", 
-                              destination = "iso3c", custom_match = custom.match)) %>%
-  group_by(state1) %>%
-  mutate(rfgs_incoming_agg = sum(ylinpol, na.rm = TRUE)) %>%
-  ungroup() %>%
-  select(state1, state2, rfgs_incoming = ylinpol, rfgs_incoming_agg) 
+                              destination = "iso3c", custom_match = custom.wrd)) %>%
+  filter(state1 %in% unique(visa.df$destination_iso3), # subset to countries in visa.df
+         state2 %in% unique(visa.df$destination_iso3)) %>%
+  select(state1, state2, rfgs_incoming = ylinpol)
 
-# Join to border.df and compute refugees hosted per capita
-visa.df <- visa.df %>%
-  left_join(y = wrd.df, by = c("destination_iso3" = "state1", 
-                               "nationality_iso3" = "state2"))
-
-# Create column for refugees sent and total number of refugees in neigbouring country
+# Summarize EU/EFTA countries
 wrd.df <- wrd.df %>%
+  mutate(state1 = if_else(state1 %in% custom.match, "EU", state1),
+         state2 = if_else(state2 %in% custom.match, "EU", state2)) %>%
+  filter(!(state1 == "EU" & state2 == "EU")) %>%
+  group_by(state1, state2) %>%
+  mutate(rfgs_incoming = sum(rfgs_incoming)) %>%
+  ungroup() %>%
+  distinct(state1, state2, .keep_all = TRUE)
+
+# Swap
+swap.df <- wrd.df %>%
   select(rfgs_outgoing = rfgs_incoming,
-         rfgs_outgoing_agg = rfgs_incoming_agg, 
          state1 = state2,
          state2 = state1)
 
-# Join to border.df and compute refugees hosted per capita
-visa.df <- visa.df %>%
-  left_join(y = wrd.df, by = c("destination_iso3" = "state1", 
-                               "nationality_iso3" = "state2"))
+# Join to visa_eu.df 
+visa.eu.df <- visa_eu.df %>%
+  left_join(y = swap.df, by = c("destination_iso3" = "state1", "nationality_iso3" = "state2")) %>%
+  left_join(y = wrd.df, by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
 
 # Load data:
 # - cshapes
