@@ -2,6 +2,11 @@
 ### ------------------------------------------------------------------------ ###
 # Run Visa_Analysis.R until ERGM (~line 148)
 
+# Load/install packages
+### ------------------------------------------------------------------------ ###
+if (!require("xfun")) install.packages("xfun")
+pkg_attach2("patchwork")
+
 # Join network statistics to node attributes
 visa_imp.df <- visa_imp.df %>%
   left_join(y = visa_degree.df, by = c("destination_iso3" = "country"))
@@ -24,3 +29,6 @@ scatter_fun = function(x, y) {
 # Plots
 plot.df <- plot.df %>%
   mutate(plots = map2(.x = iv, .y = uv, ~scatter_fun(.x, .y)))
+
+# Use patchwork to combine plots
+wrap_plots(plot.df$plots)
