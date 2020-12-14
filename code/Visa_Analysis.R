@@ -166,12 +166,19 @@ contiguity.mat <- edge_att.df %>%
 model <- ergm(visa.net ~ edges + 
                 absdiff("gdp_log") +
                 absdiff("polity2") +
-                edgecov(contiguity.mat),
+                edgecov(contiguity.mat) +
+                mutual +
+                gwidegree(decay = .1, fixed = TRUE) +
+                gwodegree(decay = .1, fixed = TRUE) +
+                gwesp(decay = .1, fixed = TRUE),
               control = control.ergm(seed = 2020, 
                                      parallel = 3, 
                                      parallel.type = "PSOCK"),
               verbose = TRUE)
-  
+
+# Goodness of fit measures  
+gof <- gof(model)
+
 # ergm controls
 # Parallel computing
 # ergm(control = control.ergm(seed = 2020, parallel = 3, parallel.type = "PSOCK"))
