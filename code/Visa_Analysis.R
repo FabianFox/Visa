@@ -7,17 +7,17 @@
 # edited in Create_VisaNetworkData2020.R
 
 # Load/install packages
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 if (!require("xfun")) install.packages("xfun")
 pkg_attach2("tidyverse", "rio", "countrycode", "patchwork", "ggraph", 
             "tidygraph", "igraph", "intergraph", "mice")
 
 # Load data
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 visa.df <- import("./data/visa_main.rds")
 
 # Network format(s)
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 # Transform into network format
 graph.df <- tibble(
   # actors: states
@@ -42,7 +42,7 @@ visa.mat <- get.adjacency(visa.graph, sparse = FALSE)
 visa.tbl <- as_tbl_graph(visa.graph)
 
 # Add node- and edge-attributes
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 
 # Load data
 node_att.df <- import("./data/node_attributes.rds")
@@ -90,7 +90,7 @@ visa.tbl <- visa.tbl %>%
             by = c("name" = "destination_iso3"))
 
 # Descriptive stats
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 # Density
 visa_density.df <- visa.tbl %>%
   graph.density()
@@ -146,7 +146,7 @@ visa_stats.df <- tibble(
   )
 
 # ERGM
-### ------------------------------------------------------------------------###
+### ------------------------------------------------------------------------ ###
 # Notes:
 # - edge/dyadcov need attributes that match the modeled network
 
