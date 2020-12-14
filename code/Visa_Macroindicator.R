@@ -31,6 +31,10 @@ visa_eu.df <- visa.df %>%
   distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
   filter(!(destination_iso3 == "EU" & nationality_iso3 == "EU")) 
 
+                        ## ---------------------- ##
+                        ##    EDGE ATTRIBUTES     ##
+                        ## ---------------------- ##
+
 # Edge attributes
 ### ------------------------------------------------------------------------ ###
 
@@ -144,6 +148,11 @@ cap_dist.graph <- graph_from_data_frame(visa_eu.df %>%
 # Transform into a matrix
 cap_dist.mat <- get.adjacency(cap_dist.graph, sparse = FALSE, attr = "weight") 
 
+
+                          ## ---------------------- ##
+                          ##    NODE ATTRIBUTES     ##
+                          ## ---------------------- ##
+
 # Node attributes
 ### ------------------------------------------------------------------------ ###
 states.df <- visa_eu.df %>%
@@ -243,10 +252,6 @@ wb.info <- wb.info %>%
 # Join to visa.df
 states.df <- states.df %>%
   left_join(y = wb.info, by = c("destination_iso3" = "iso3c"))
-
-## -------------------------------------------------------------------------- ##
-#  NEEDS TO BE ADJUSTED
-## -------------------------------------------------------------------------- ##
 
 # COW: Trade v4.0
 # Variable: flow1, flow2
