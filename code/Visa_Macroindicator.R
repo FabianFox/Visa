@@ -98,9 +98,12 @@ contiguity.mat[contiguity.mat == 2] <- 1
 
 # COW: Trade v4.0
 # Variable: flow1, flow2
-# Year: 2014
+# Year: 2014 (latest)
 # retrieved from https://correlatesofwar.org/data-sets/bilateral-trade
 ## -------------------------------------------------------------------------- ##
+# Note:
+# - several missing trade relations
+
 # Dyadic trade
 trade_dyad.df <- import("./data/independent variables/Dyadic_COW_4.0.csv") %>%
   select(state1 = ccode1, state2 = ccode2, year, import = flow1, export = flow2) %>%
@@ -126,8 +129,7 @@ swap.df <- trade_dyad.df %>%
     state2 = state1,
   ) %>%
   rename(export = import,
-         import = export
-  )
+         import = export)
 
 # (2) Merge trade.df and swap.df
 trade_dyad.df <- trade_dyad.df %>%
@@ -257,7 +259,7 @@ rfgs.graph <- graph_from_data_frame(visa_eu.df %>%
                                      directed = TRUE)
 
 # Transform into a matrix
-rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight") 
+rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight")
 
 # Load data:
 # - cshapes
@@ -415,10 +417,6 @@ wb.info <- wb.info %>%
 states.df <- states.df %>%
   left_join(y = wb.info, by = c("destination_iso3" = "iso3c"))
 
-## -------------------------------------------------------------------------- ##
-##                                 MOBILITY                                   ##
-## -------------------------------------------------------------------------- ##
-
 # Global Transnational Mobility
 # Variable: Estimated trips
 # Year: 2016
@@ -447,10 +445,6 @@ visa.df <- visa.df %>%
                                "nationality_iso3" = "source_iso3")) %>%
   rename(trips_incoming = estimated_trips)
 
-## -------------------------------------------------------------------------- ##
-##                                 SECURITY                                   ##
-## -------------------------------------------------------------------------- ##
-
 # Create a dyad identifier variable
 ## -------------------------------------------------------------------------- ##
 # Function to create a dyad identifier 
@@ -477,7 +471,9 @@ edge.df <- tibble(
   type = c("contiguity", "capdist"),
   network = c(
     list(contiguity.mat),
-    list(cap_dist.mat)
+    list(cap_dist.mat),
+    list(trade.mat),
+    list(rfgs.mat)
   ))
 
 # Export
