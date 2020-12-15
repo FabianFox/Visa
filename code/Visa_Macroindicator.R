@@ -155,7 +155,6 @@ trade_dyad.df <- trade_dyad.df %>%
   select(-year)
 
 # Monadic trade
-## -------------------------------------------------------------------------- ##
 trade_monadic.df <- import("./data/independent variables/National_COW_4.0.csv") %>%
   select(state = ccode, year, import_total = imports, export_total = exports) %>%
   filter(year == 2014) %>%
@@ -180,7 +179,6 @@ trade_monadic.df[trade_monadic.df$state == "EU", c("import_total", "export_total
 # Share imports / total imports
 # Share exports / total exports
 # Trade interdependence (see Avdan 2019: 88)
-## -------------------------------------------------------------------------- ##
 trade.df <- trade_dyad.df %>%
   left_join(y = trade_monadic.df, by = c("state1" = "state")) %>%
   mutate(import_share = import / import_total * 100,
@@ -193,7 +191,6 @@ visa_eu.df <- visa_eu.df %>%
             by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
 
 # Network format
-## -------------------------------------------------------------------------- ##
 trade.graph <- graph_from_data_frame(visa_eu.df %>%
                                           select(from = destination_iso3, 
                                                  to = nationality_iso3,
@@ -250,7 +247,6 @@ visa_eu.df <- visa_eu.df %>%
   left_join(y = wrd.df, by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
 
 # Network format
-## -------------------------------------------------------------------------- ##
 rfgs.graph <- graph_from_data_frame(visa_eu.df %>%
                                        select(from = destination_iso3, 
                                               to = nationality_iso3,
@@ -277,7 +273,7 @@ rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight")
 # Custom dictionary
 # Note: Serbia has a different cown in GW than in COW
 custom.gw <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
-custom.eu <- custom.match[-2] # Remove BEL
+custom.eu <- custom.match[-2] # Remove BEL (Brussels as capital of EU)
 
 # Turn gwcode into iso3c
 cap_dist.df <- import("./data/capital_distances.rds") %>%
