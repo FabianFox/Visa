@@ -417,15 +417,59 @@ wb.info <- wb.info %>%
 states.df <- states.df %>%
   left_join(y = wb.info, by = c("destination_iso3" = "iso3c"))
 
+# Global Terrorismus Database (START)
+# # Year: Mean/Median (2008-2018)
+## -------------------------------------------------------------------------- ##
+# Note:
+# - .rds-file created from the original .xlsx
+# - missing values for several countries
+
+# Custom match
+gtd.custom.match <- c("Kosovo" = "RKS")
+
+# Load data and aggregate nkill, nwound, nterror
+gtd.df <- import("./data/independent variables/globalterrorismdb_0919dist.rds") %>%
+  filter(between(iyear, 2008, 2018)) %>%
+  select(country_txt, iyear, nkill, nwound) %>%
+  group_by(country_txt, iyear) %>%
+  summarise(nterror = n(), 
+            nkill = sum(nkill, na.rm = TRUE),
+            nwound = sum(nwound, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(iso3c = countrycode(country_txt, "country.name.en", "iso3c", 
+                                  custom_match = gtd.custom.match)) %>%
+  complete(nesting(country_txt, iso3c), iyear,
+           fill = list(nterror = 0, nkill = 0, nwound = 0)) %>%
+  group_by(iso3c) %>%  
+  summarise(nterror = sum(nterror),
+            nkill = sum(nkill),
+            nwound = sum(nwound)) %>%
+  ungroup()
+
+# Aggregate EFTA/EU cases
+gtd.df <- gtd.df %>%
+  mutate(iso3c = if_else(iso3c %in% custom.match, "EU", iso3c)) %>%
+  group_by(iso3c) %>%
+  summarise(
+    nterror = sum(nterror),
+    nkill = sum(nkill),
+    nwound = sum(nwound)
+  ) %>%
+  ungroup() %>%
+  distinct(iso3c, .keep_all = TRUE)
+
+# Join to states.df 
+states.df <- states.df %>%
+  left_join(y = gtd.df, by = c("destination_iso3" = "iso3c"))
+
 # Global Transnational Mobility
 # Variable: Estimated trips
 # Year: 2016
 # retrieved from Recchi et al. (2019) "Estimating Transnational Human Mobility 
 #                                      on a Global Scale"
-# Note: Dataset was transformed from .xlsx to .csv to speed up importing
 ## -------------------------------------------------------------------------- ##
-# Function to create a dyad identifier 
-# from: https://stackoverflow.com/questions/52316998/create-unique-id-for-dyads-non-directional
+# Notes: 
+# - Dataset was transformed from .xlsx to .csv to speed up importing
 
 # (1) Load and filter to 2016
 gtm.df <- import("./data/independent variables/Global_Transnational_Mobility_dataset_v1.0.csv") %>%
@@ -468,7 +512,7 @@ export(states.df, "./data/node_attributes.rds")
 
 # Edge attributes
 edge.df <- tibble(
-  type = c("contiguity", "capdist"),
+  type = c("contiguity", "capdist", "trade", "refugees"),
   network = c(
     list(contiguity.mat),
     list(cap_dist.mat),
