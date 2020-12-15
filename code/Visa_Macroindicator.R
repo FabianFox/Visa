@@ -189,8 +189,22 @@ trade.df <- trade_dyad.df %>%
 
 # Join to visa_eu.df
 visa_eu.df <- visa_eu.df %>%
-  left_join(y = trade_dyad.df, 
+  left_join(y = trade.df, 
             by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
+
+# Network format
+## -------------------------------------------------------------------------- ##
+trade.graph <- graph_from_data_frame(visa_eu.df %>%
+                                          select(from = destination_iso3, 
+                                                 to = nationality_iso3,
+                                                 weight = trade_interdependence),
+                                        vertices = visa_eu.df %>%
+                                          pull(destination_iso3) %>%
+                                          unique(), 
+                                        directed = TRUE)
+
+# Transform into a matrix
+trade.mat <- get.adjacency(trade.graph, sparse = FALSE, attr = "weight") 
 
 # World Refugee Dataset
 # Variable:
