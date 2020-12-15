@@ -245,9 +245,23 @@ swap.df <- wrd.df %>%
          state2 = state1)
 
 # Join to visa_eu.df 
-visa.eu.df <- visa_eu.df %>%
+visa_eu.df <- visa_eu.df %>%
   left_join(y = swap.df, by = c("destination_iso3" = "state1", "nationality_iso3" = "state2")) %>%
   left_join(y = wrd.df, by = c("destination_iso3" = "state1", "nationality_iso3" = "state2"))
+
+# Network format
+## -------------------------------------------------------------------------- ##
+rfgs.graph <- graph_from_data_frame(visa_eu.df %>%
+                                       select(from = destination_iso3, 
+                                              to = nationality_iso3,
+                                              weight = rfgs_outgoing),
+                                     vertices = visa_eu.df %>%
+                                       pull(destination_iso3) %>%
+                                       unique(), 
+                                     directed = TRUE)
+
+# Transform into a matrix
+rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight") 
 
 # Load data:
 # - cshapes
