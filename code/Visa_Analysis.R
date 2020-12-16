@@ -5,6 +5,7 @@
 # year: 2020
 # created in Visa_Scraper.R
 # edited in Create_VisaNetworkData2020.R
+# independent variables from Visa_Macroindicator.R
 
 # Load/install packages
 ### ------------------------------------------------------------------------ ###
@@ -52,7 +53,7 @@ edge_att.df <- import("./data/edge_attributes.rds")
 ### ------------------------------- ###
 # ERGMs do not deal with missing data satisfactory. For now, quick imputation.
 visa_imp.df <- node_att.df %>%
-  select(destination_iso3, gdp_mean, polity2) %>%
+  select(destination_iso3, gdp_mean, polity2, nterror) %>%
   mutate(gdp_log = log(gdp_mean),
          polity2 = if_else(!between(polity2, -10, 10), NA_real_, polity2)) %>%
   select(-gdp_mean)
@@ -97,7 +98,7 @@ visa_density.df <- visa.tbl %>%
 
 # Triad census
 visa_triad.df <- visa.tbl %>%
-  triad.census() %>%
+  igraph::triad_census() %>%
   as_tibble() %>%
   mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
                    "030T", "030C", "201", "120D", "120U", "120C", "210", "300"))
@@ -156,29 +157,198 @@ pkg_attach2("statnet")
 # Turn visa data into network-format
 visa.net <- asNetwork(visa.tbl)
 
-# Import contiguity network
+# Prepare edge attributes
+# Contiguity network
 contiguity.mat <- edge_att.df %>%
   filter(type == "contiguity") %>%
   pull(network) %>%
   .[[1]]
 
+# Refugee flows
+rfgs.mat <- edge_att.df %>%
+  filter(type = "refugrees") %>%
+  pull(network) %>%
+  .[[1]]
+
 # Model
-model <- ergm(visa.net ~ edges + 
-                absdiff("gdp_log") +
-                absdiff("polity2") +
-                edgecov(contiguity.mat) +
-                mutual +
-                gwidegree(decay = .1, fixed = TRUE) +
-                gwodegree(decay = .1, fixed = TRUE) +
-                gwesp(decay = .1, fixed = TRUE),
-              control = control.ergm(seed = 2020, 
-                                     parallel = 3, 
-                                     parallel.type = "PSOCK"),
-              verbose = TRUE)
+### ------------------------------- ###
+# Extract model fit
+modelfit_fun <- function(x){
+  tibble(
+   call = as.character(x$call)[2],
+   BIC = BIC(x),
+   AIC = AIC(x),
+   logLik = logLik(x)[1])
+}
 
-# Goodness of fit measures  
-gof <- gof(model)
+# Null model (only edge-term)
+### ------------------------------- ###
+null_model <- ergm(visa.net ~ edges,
+                   control = control.ergm(seed = 2020, 
+                                          parallel = 3, 
+                                          parallel.type = "PSOCK"), 
+                   verbose = TRUE)
 
+# Model fit
+model.fit <- modelfit_fun(null_model)
+
+# Goodness-of-fit (GOF)
+null_model.gof <- gof(null_model)
+
+# Simulate networks
+null_model.sim <- simulate(null_model,
+                           nsim = 100,
+                           control = control.simulate.ergm(MCMC.burnin = 1000,
+                                                           MCMC.interval = 1000),
+                           seed = 2020)
+
+# Get model statistics and compare to empirical network
+null_model.sim %>% 
+  map_dbl(~asIgraph(.x) %>% 
+        reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Mutual model
+### ------------------------------- ###
+mutual_model <- ergm(visa.net ~ edges + mutual,
+                     control = control.ergm(seed = 2020, 
+                                            parallel = 3, 
+                                            parallel.type = "PSOCK"), 
+                     verbose = TRUE)
+
+# Model fit
+model.fit <- model.fit %>%
+  add_row(modelfit_fun(mutual_model))
+
+# Goodness-of-fit (GOF)
+mutual_model.gof <- gof(mutual_model)
+
+# Simulate networks
+mutual_model.sim <- simulate(mutual_model,
+                             nsim = 100,
+                             control = control.simulate.ergm(
+                               MCMC.burnin = 1000,
+                               MCMC.interval = 1000),
+                             seed = 2020)
+
+# Get model statistics and compare to empirical network
+# Reciprocity
+mutual_model.sim %>%
+  map_dbl(~asIgraph(.x) %>% 
+            reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Triads
+mutual_model.triads <- mutual_model.sim %>% 
+  imap_dfr(~asIgraph(.x) %>%
+            igraph::triad_census() %>%
+            as_tibble() %>%
+            mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
+                             "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
+                   sim_id = .y)) %>% 
+  group_by(triad) %>%
+  summarize(value = mean(value)) %>%
+  ungroup() %>%
+  rename(sim_triads = value) %>%
+  left_join(y = visa_triad.df, by = "triad")
+
+# Balance
+### ------------------------------- ###
+balance_model <- ergm(visa.net ~ edges + balance,
+                     control = control.ergm(seed = 2020, 
+                                            parallel = 3, 
+                                            parallel.type = "PSOCK",
+                                            MCMC.interval = 10240,
+                                            MCMC.samplesize = 10240), 
+                     verbose = TRUE)
+
+# Model fit
+model.fit <- model.fit %>%
+  add_row(modelfit_fun(balance_model))
+
+# Goodness-of-fit (GOF)
+balance_model.gof <- gof(balance_model)
+
+# Simulate networks
+balance_model.sim <- simulate(balance_model,
+                              nsim = 100,
+                              control = control.simulate.ergm(
+                                MCMC.burnin = 1000,
+                                MCMC.interval = 1000),
+                              seed = 2020)
+
+# Get model statistics and compare to empirical network
+# Reciprocity
+balance_model.sim %>%
+  map_dbl(~asIgraph(.x) %>% 
+            reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Triads
+balance_model.triads <- balance_model.sim %>% 
+  imap_dfr(~asIgraph(.x) %>%
+             igraph::triad.census() %>%
+             as_tibble() %>%
+             mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
+                              "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
+                    sim_id = .y)) %>% 
+  group_by(triad) %>%
+  summarize(value = mean(value)) %>%
+  ungroup() %>%
+  rename(sim_triads = value) %>%
+  left_join(y = visa_triad.df, by = "triad")
+
+# ostar(2) + triangle
+### ------------------------------- ###
+triangle_model <- ergm(visa.net ~ edges + ostar(2), triangle,
+                      control = control.ergm(seed = 2020, 
+                                             parallel = 3, 
+                                             parallel.type = "PSOCK",
+                                             MCMC.interval = 10240,
+                                             MCMC.samplesize = 10240), 
+                      verbose = TRUE)
+
+# Model fit
+model.fit <- model.fit %>%
+  add_row(modelfit_fun(triangle_model))
+
+# Goodness-of-fit (GOF)
+triangle_model.gof <- gof(triangle_model)
+
+# Simulate networks
+triangle_model.sim <- simulate(triangle_model,
+                              nsim = 100,
+                              control = control.simulate.ergm(
+                                MCMC.burnin = 1000,
+                                MCMC.interval = 1000),
+                              seed = 2020)
+
+# Get model statistics and compare to empirical network
+# Reciprocity
+triangle_model.sim %>%
+  map_dbl(~asIgraph(.x) %>% 
+            reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Triads
+triangle_model.triads <- triangle_model.sim %>% 
+  imap_dfr(~asIgraph(.x) %>%
+             igraph::triad.census() %>%
+             as_tibble() %>%
+             mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
+                              "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
+                    sim_id = .y)) %>% 
+  group_by(triad) %>%
+  summarize(value = mean(value)) %>%
+  ungroup() %>%
+  rename(sim_triads = value) %>%
+  left_join(y = visa_triad.df, by = "triad")
+
+### ------------------------------- ###
 # ergm controls
 # Parallel computing
 # ergm(control = control.ergm(seed = 2020, parallel = 3, parallel.type = "PSOCK"))
