@@ -166,7 +166,7 @@ contiguity.mat <- edge_att.df %>%
 
 # Refugee flows
 rfgs.mat <- edge_att.df %>%
-  filter(type = "refugrees") %>%
+  filter(type == "refugees") %>%
   pull(network) %>%
   .[[1]]
 
@@ -179,6 +179,22 @@ modelfit_fun <- function(x){
    BIC = BIC(x),
    AIC = AIC(x),
    logLik = logLik(x)[1])
+}
+
+# Triad counts
+triad_fun <- function(x){
+  x %>% 
+    imap_dfr(~asIgraph(.x) %>%
+               igraph::triad_census() %>%
+               as_tibble() %>%
+               mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
+                                "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
+                      sim_id = .y)) %>% 
+    group_by(triad) %>%
+    summarize(value = mean(value)) %>%
+    ungroup() %>%
+    rename(sim_triads = value) %>%
+    left_join(y = visa_triad.df, by = "triad")
 }
 
 # Null model (only edge-term)
@@ -241,18 +257,7 @@ mutual_model.sim %>%
   mean()
 
 # Triads
-mutual_model.triads <- mutual_model.sim %>% 
-  imap_dfr(~asIgraph(.x) %>%
-            igraph::triad_census() %>%
-            as_tibble() %>%
-            mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
-                             "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
-                   sim_id = .y)) %>% 
-  group_by(triad) %>%
-  summarize(value = mean(value)) %>%
-  ungroup() %>%
-  rename(sim_triads = value) %>%
-  left_join(y = visa_triad.df, by = "triad")
+mutual_model.triads <- triad_fun(mutual_model.sim)
 
 # Balance
 ### ------------------------------- ###
@@ -288,38 +293,31 @@ balance_model.sim %>%
   mean()
 
 # Triads
-balance_model.triads <- balance_model.sim %>% 
-  imap_dfr(~asIgraph(.x) %>%
-             igraph::triad.census() %>%
-             as_tibble() %>%
-             mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
-                              "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
-                    sim_id = .y)) %>% 
-  group_by(triad) %>%
-  summarize(value = mean(value)) %>%
-  ungroup() %>%
-  rename(sim_triads = value) %>%
-  left_join(y = visa_triad.df, by = "triad")
+balance_model.triads <- triad_fun(balance_model.sim)
 
-# ostar(2) + triangle
+# Mutual + attributes
 ### ------------------------------- ###
-triangle_model <- ergm(visa.net ~ edges + ostar(2), triangle,
+mutual_attr_model <- ergm(visa.net ~ edges + mutual +
+                         nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
+                         nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
+                         edgecov(contiguity.mat),
                       control = control.ergm(seed = 2020, 
                                              parallel = 3, 
                                              parallel.type = "PSOCK",
-                                             MCMC.interval = 10240,
-                                             MCMC.samplesize = 10240), 
+                                             MCMC.burnin = 100000,
+                                             MCMC.samplesize = 50000,
+                                             MCMLE.maxit = 20), 
                       verbose = TRUE)
 
 # Model fit
 model.fit <- model.fit %>%
-  add_row(modelfit_fun(triangle_model))
+  add_row(modelfit_fun(mutual_attr_model))
 
 # Goodness-of-fit (GOF)
-triangle_model.gof <- gof(triangle_model)
+mutual_attr_model.gof <- gof(mutual_attr_model)
 
 # Simulate networks
-triangle_model.sim <- simulate(triangle_model,
+mutual_attr_model.sim <- simulate(mutual_attr_model,
                               nsim = 100,
                               control = control.simulate.ergm(
                                 MCMC.burnin = 1000,
@@ -328,25 +326,14 @@ triangle_model.sim <- simulate(triangle_model,
 
 # Get model statistics and compare to empirical network
 # Reciprocity
-triangle_model.sim %>%
+mutual_attr_model.sim %>%
   map_dbl(~asIgraph(.x) %>% 
             reciprocity()) %>% 
   unlist() %>% 
   mean()
 
 # Triads
-triangle_model.triads <- triangle_model.sim %>% 
-  imap_dfr(~asIgraph(.x) %>%
-             igraph::triad.census() %>%
-             as_tibble() %>%
-             mutate(triad = c("003", "012", "102", "021D", "021U", "021C", "111D", "111U", 
-                              "030T", "030C", "201", "120D", "120U", "120C", "210", "300"),
-                    sim_id = .y)) %>% 
-  group_by(triad) %>%
-  summarize(value = mean(value)) %>%
-  ungroup() %>%
-  rename(sim_triads = value) %>%
-  left_join(y = visa_triad.df, by = "triad")
+mutual_attr_model.triads <- triad_fun(mutual_attr_model.sim)
 
 ### ------------------------------- ###
 # ergm controls
