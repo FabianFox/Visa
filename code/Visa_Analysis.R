@@ -335,6 +335,46 @@ mutual_attr_model.sim %>%
 # Triads
 mutual_attr_model.triads <- triad_fun(mutual_attr_model.sim)
 
+# gwesp + attributes
+### ------------------------------- ###
+gwesp_attr_model <- ergm(visa.net ~ edges + mutual + gwesp(decay = .1, fixed = TRUE) +
+                            nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
+                            nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
+                            edgecov(contiguity.mat),
+                          control = control.ergm(seed = 2020, 
+                                                 parallel = 3, 
+                                                 parallel.type = "PSOCK",
+                                                 MCMC.burnin = 100000,
+                                                 MCMC.samplesize = 50000,
+                                                 MCMLE.maxit = 20), 
+                          verbose = TRUE)
+
+# Model fit
+model.fit <- model.fit %>%
+  add_row(modelfit_fun(gwesp_attr_model))
+
+# Goodness-of-fit (GOF)
+gwesp_attr_model.gof <- gof(gwesp_attr_model)
+
+# Simulate networks
+gwesp_attr_model.sim <- simulate(gwesp_attr_model,
+                                  nsim = 100,
+                                  control = control.simulate.ergm(
+                                    MCMC.burnin = 1000,
+                                    MCMC.interval = 1000),
+                                  seed = 2020)
+
+# Get model statistics and compare to empirical network
+# Reciprocity
+gwesp_attr_model.sim %>%
+  map_dbl(~asIgraph(.x) %>% 
+            reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Triads
+gwesp_attr_model.triads <- triad_fun(gwesp_attr_model.sim)
+
 ### ------------------------------- ###
 # ergm controls
 # Parallel computing
@@ -345,5 +385,16 @@ mutual_attr_model.triads <- triad_fun(mutual_attr_model.sim)
 # MCMC.burnin = MCMC.interval * 16
 # MCMC.samplesize = 1024
 
-# Save output of ergm
-# export(model1.cef, "./output/model1_cef.rds")
+# Plot
+### ------------------------------------------------------------------------ ###
+triad.df <- triad.df %>%
+  pivot_longer(!triad) %>%
+  mutate(empirical = if_else(name == "empirical", 1, 0),
+         empirical = factor(empirical))
+
+ggplot(triad.df, aes(x = name, y = value, fill = empirical)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~triad) +
+  scale_fill_manual(values = c("grey50", "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
