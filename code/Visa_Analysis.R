@@ -375,6 +375,48 @@ gwesp_attr_model.sim %>%
 # Triads
 gwesp_attr_model.triads <- triad_fun(gwesp_attr_model.sim)
 
+# gwesp (RTP) + gwodegree +  attributes
+### ------------------------------- ###
+gwesprtp_attr_model <- ergm(visa.net ~ edges + mutual + 
+                              dgwesp(0, fixed = TRUE, type = "RTP") +
+                              gwodegree(decay = .5, fixed = TRUE) + 
+                           nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
+                           nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
+                           edgecov(contiguity.mat),
+                         control = control.ergm(seed = 2020, 
+                                                parallel = 3, 
+                                                parallel.type = "PSOCK",
+                                                MCMC.burnin = 100000,
+                                                MCMC.samplesize = 50000,
+                                                MCMLE.maxit = 20), 
+                         verbose = TRUE)
+
+# Model fit
+model.fit <- model.fit %>%
+  add_row(modelfit_fun(gwesprtp_attr_model))
+
+# Goodness-of-fit (GOF)
+gwesprtp_attr_model.gof <- gof(gwesprtp_attr_model)
+
+# Simulate networks
+gwesprtp_attr_model.sim <- simulate(gwesprtp_attr_model,
+                                 nsim = 100,
+                                 control = control.simulate.ergm(
+                                   MCMC.burnin = 1000,
+                                   MCMC.interval = 1000),
+                                 seed = 2020)
+
+# Get model statistics and compare to empirical network
+# Reciprocity
+gwesprtp_attr_model.sim %>%
+  map_dbl(~asIgraph(.x) %>% 
+            reciprocity()) %>% 
+  unlist() %>% 
+  mean()
+
+# Triads
+gwesprtp_attr_model.triads <- triad_fun(gwesprtp_attr_model.sim)
+
 ### ------------------------------- ###
 # ergm controls
 # Parallel computing
