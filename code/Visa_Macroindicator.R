@@ -262,6 +262,15 @@ rfgs.graph <- graph_from_data_frame(visa_eu.df %>%
 rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight")
 
 # Load data:
+# - Bilateral international migration flow
+# - Accessed: 2020/12/18
+## -------------------------------------------------------------------------- ##
+# Original article: Abel & Cohen (2019) https://www.nature.com/articles/s41597-019-0089-3
+# Data available from: https://figshare.com/collections/Bilateral_international_migration_flow_estimates_for_200_countries/4470464
+
+
+
+# Load data:
 # - cshapes
 # see: http://nils.weidmann.ws/projects/cshapes/r-package.html
 # - Accessed: 2020/11/11
