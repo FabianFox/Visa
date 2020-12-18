@@ -337,7 +337,7 @@ mutual_attr_model.triads <- triad_fun(mutual_attr_model.sim)
 
 # gwesp + attributes
 ### ------------------------------- ###
-gwesp_attr_model <- ergm(visa.net ~ edges + mutual + gwesp(decay = .1, fixed = TRUE) +
+gwdsp_attr_model <- ergm(visa.net ~ edges + mutual + gwdsp(decay = 0, fixed = TRUE) +
                             nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
                             nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
                             edgecov(contiguity.mat),
@@ -387,7 +387,7 @@ gwesp_attr_model.triads <- triad_fun(gwesp_attr_model.sim)
 
 # Plot
 ### ------------------------------------------------------------------------ ###
-triad.df <- triad.df %>%
+triad.df <- triad.fit %>%
   pivot_longer(!triad) %>%
   mutate(empirical = if_else(name == "empirical", 1, 0),
          empirical = factor(empirical))
