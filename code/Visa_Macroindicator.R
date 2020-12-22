@@ -267,8 +267,38 @@ rfgs.mat <- get.adjacency(rfgs.graph, sparse = FALSE, attr = "weight")
 ## -------------------------------------------------------------------------- ##
 # Original article: Abel & Cohen (2019) https://www.nature.com/articles/s41597-019-0089-3
 # Data available from: https://figshare.com/collections/Bilateral_international_migration_flow_estimates_for_200_countries/4470464
+mig.df <- import("./data/independent variables/gf_od.csv") %>%
+  filter(year0 == 2010, orig %in% visa.df$destination_iso3,
+         !orig == dest) %>% # remove self-ties
+  select(from = orig, to = dest, est_migration = da_min_closed)
 
+# Summarize EU/EFTA countries
+mig.df <- mig.df %>%
+  mutate(from = if_else(from %in% custom.match, "EU", from),
+         to = if_else(to %in% custom.match, "EU", to)) %>%
+  filter(!(from == "EU" & to == "EU")) %>%
+  group_by(from, to) %>%
+  mutate(est_migration = sum(est_migration)) %>%
+  ungroup() %>%
+  distinct(from, to, .keep_all = TRUE)
 
+# Join to visa_eu.df 
+visa_eu.df <- visa_eu.df %>%
+  left_join(y = mig.df, by = c("destination_iso3" = "from", 
+                               "nationality_iso3" = "to"))
+
+# Network format
+mig.graph <- graph_from_data_frame(visa_eu.df %>%
+                                      select(from = destination_iso3, 
+                                             to = nationality_iso3,
+                                             weight = est_migration),
+                                    vertices = visa_eu.df %>%
+                                      pull(destination_iso3) %>%
+                                      unique(), 
+                                    directed = TRUE)
+
+# Transform into a matrix
+mig.mat <- get.adjacency(mig.graph, sparse = FALSE, attr = "weight")
 
 # Load data:
 # - cshapes
@@ -521,12 +551,13 @@ export(states.df, "./data/node_attributes.rds")
 
 # Edge attributes
 edge.df <- tibble(
-  type = c("contiguity", "capdist", "trade", "refugees"),
+  type = c("contiguity", "capdist", "trade", "refugees", "migration"),
   network = c(
     list(contiguity.mat),
     list(cap_dist.mat),
     list(trade.mat),
-    list(rfgs.mat)
+    list(rfgs.mat),
+    list(mig.mat)
   ))
 
 # Export
