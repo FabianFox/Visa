@@ -47,9 +47,12 @@ states.df <- gwstates %>%
                             custom_match = custom.match))
 
 # Subset
+# also exclude Taiwan (TWN) due to many missing values
 visa_2020.df <- visa_2020.df %>%
   filter(destination_iso3 %in% states.df$iso3c &
-           nationality_iso3 %in% states.df$iso3c)
+           nationality_iso3 %in% states.df$iso3c,
+         !destination_iso3 == "TWN",
+         !nationality_iso3 == "TWN")
 
 
 # Manually add missing information on a few dyads in 2020
@@ -82,11 +85,6 @@ visa_2020.df[visa_2020.df$destination_iso3 == "BLZ" &
 # ARE -> QAT (visa required)
 visa_2020.df[visa_2020.df$destination_iso3 == "ARE" & 
                visa_2020.df$nationality_iso3 == "QAT",
-             c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
-
-# CHN -> TWN is missing but provided in the database
-visa_2020.df[visa_2020.df$destination_iso3 == "CHN" & 
-               visa_2020.df$nationality_iso3 == "TWN",
              c("visa_requirement", "visa_requirement_binary")] <- list("Visa is required.", 0)
 
 # Transform into  a network format
