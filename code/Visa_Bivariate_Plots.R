@@ -12,7 +12,7 @@ visa_imp.df <- visa_imp.df %>%
   left_join(y = visa_degree.df, by = c("destination_iso3" = "country"))
 
 # Create a dataframe containing plotting variables
-plot.df <- expand_grid(iv = c("gdp_log","polity2"), 
+plot.df <- expand_grid(iv = c("gdp_log","polity2", "nterror_log"), 
                        uv = c("outdegree","indegree"))
 
 # Plotting function
