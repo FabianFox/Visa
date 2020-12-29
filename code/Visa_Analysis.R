@@ -55,8 +55,9 @@ edge_att.df <- import("./data/edge_attributes.rds")
 visa_imp.df <- node_att.df %>%
   select(destination_iso3, gdp_mean, polity2, nterror) %>%
   mutate(gdp_log = log(gdp_mean),
+         nterror_log = log(nterror),
          polity2 = if_else(!between(polity2, -10, 10), NA_real_, polity2)) %>%
-  select(-gdp_mean)
+  select(-gdp_mean, -nterror)
 
 # Distribution of NA
 visa_imp.df %>%
@@ -164,9 +165,15 @@ contiguity.mat <- edge_att.df %>%
   pull(network) %>%
   .[[1]]
 
-# Refugee flows
+# Refugee network
 rfgs.mat <- edge_att.df %>%
   filter(type == "refugees") %>%
+  pull(network) %>%
+  .[[1]]
+
+# Migration network
+mig.mat <- edge_att.df %>%
+  filter(type == "migration") %>%
   pull(network) %>%
   .[[1]]
 
@@ -196,6 +203,15 @@ triad_fun <- function(x){
     rename(sim_triads = value) %>%
     left_join(y = visa_triad.df, by = "triad")
 }
+
+# Existing model statistics 
+### ------------------------------- ###
+# Model fit
+model.fit <- import("./output/model_fit.rds")
+
+# Triad count
+triad.count <- import("./output/triad_count.rds")
+
 
 # Null model (only edge-term)
 ### ------------------------------- ###
@@ -377,19 +393,21 @@ gwesp_attr_model.triads <- triad_fun(gwesp_attr_model.sim)
 
 # gwesp (RTP) + gwodegree +  attributes
 ### ------------------------------- ###
-gwesprtp_attr_model <- ergm(visa.net ~ edges + mutual + 
-                              dgwesp(0, fixed = TRUE, type = "RTP") +
+gwdsp_attr_model <- ergm(visa.net ~ edges + mutual + 
+                              gwdsp(0.1, fixed = TRUE) +
                               gwodegree(decay = .5, fixed = TRUE) + 
-                           nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
-                           nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
-                           edgecov(contiguity.mat),
-                         control = control.ergm(seed = 2020, 
+                              gwidegree(0, fixed = TRUE) +
+                              nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
+                              nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
+                              nodeocov("nterror") + nodeicov("nterror") +
+                              edgecov(contiguity.mat),
+                            control = control.ergm(seed = 2020, 
                                                 parallel = 3, 
                                                 parallel.type = "PSOCK",
                                                 MCMC.burnin = 100000,
                                                 MCMC.samplesize = 50000,
                                                 MCMLE.maxit = 20), 
-                         verbose = TRUE)
+                            verbose = TRUE)
 
 # Model fit
 model.fit <- model.fit %>%
@@ -429,7 +447,7 @@ gwesprtp_attr_model.triads <- triad_fun(gwesprtp_attr_model.sim)
 
 # Plot
 ### ------------------------------------------------------------------------ ###
-triad.df <- triad.fit %>%
+triad.df <- triad.count %>%
   pivot_longer(!triad) %>%
   mutate(empirical = if_else(name == "empirical", 1, 0),
          empirical = factor(empirical))
