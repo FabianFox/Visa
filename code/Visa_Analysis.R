@@ -212,7 +212,6 @@ model.fit <- import("./output/model_fit.rds")
 # Triad count
 triad.count <- import("./output/triad_count.rds")
 
-
 # Null model (only edge-term)
 ### ------------------------------- ###
 null_model <- ergm(visa.net ~ edges,
@@ -399,7 +398,7 @@ gwdsp_attr_model <- ergm(visa.net ~ edges + mutual +
                               gwidegree(0, fixed = TRUE) +
                               nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
                               nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
-                              nodeocov("nterror") + nodeicov("nterror") +
+                              nodeocov("nterror_log") + nodeicov("nterror_log") +
                               edgecov(contiguity.mat),
                             control = control.ergm(seed = 2020, 
                                                 parallel = 3, 
