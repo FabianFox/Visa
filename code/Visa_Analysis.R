@@ -390,12 +390,12 @@ gwesp_attr_model.sim %>%
 # Triads
 gwesp_attr_model.triads <- triad_fun(gwesp_attr_model.sim)
 
-# gwesp (RTP) + gwodegree +  attributes
+# gwesp + gwidegree + gwodegree +  attributes
 ### ------------------------------- ###
-gwdsp_attr_model <- ergm(visa.net ~ edges + mutual + 
-                              gwdsp(0.1, fixed = TRUE) +
-                              gwodegree(decay = .5, fixed = TRUE) + 
-                              gwidegree(0, fixed = TRUE) +
+gw_attr_model <- ergm(visa.net ~ edges + mutual + 
+                              gwesp(.1, fixed = TRUE) +
+                              gwodegree(.5, fixed = TRUE) + 
+                              gwidegree(.1, fixed = TRUE) +
                               nodeocov("gdp_log") + nodeicov("gdp_log") + absdiff("gdp_log") +
                               nodeocov("polity2") + nodeicov("polity2") + absdiff("polity2") +
                               nodeocov("nterror_log") + nodeicov("nterror_log") +
@@ -410,13 +410,13 @@ gwdsp_attr_model <- ergm(visa.net ~ edges + mutual +
 
 # Model fit
 model.fit <- model.fit %>%
-  add_row(modelfit_fun(gwesprtp_attr_model))
+  add_row(modelfit_fun(gw_attr_model))
 
 # Goodness-of-fit (GOF)
-gwesprtp_attr_model.gof <- gof(gwesprtp_attr_model)
+gw_attr_model.gof <- gof(gw_attr_model)
 
 # Simulate networks
-gwesprtp_attr_model.sim <- simulate(gwesprtp_attr_model,
+gw_attr_model.sim <- simulate(gw_attr_model,
                                  nsim = 100,
                                  control = control.simulate.ergm(
                                    MCMC.burnin = 1000,
@@ -425,14 +425,14 @@ gwesprtp_attr_model.sim <- simulate(gwesprtp_attr_model,
 
 # Get model statistics and compare to empirical network
 # Reciprocity
-gwesprtp_attr_model.sim %>%
+gw_attr_model.sim %>%
   map_dbl(~asIgraph(.x) %>% 
             reciprocity()) %>% 
   unlist() %>% 
   mean()
 
 # Triads
-gwesprtp_attr_model.triads <- triad_fun(gwesprtp_attr_model.sim)
+gw_attr_model.triads <- triad_fun(gw_attr_model.sim)
 
 ### ------------------------------- ###
 # ergm controls
