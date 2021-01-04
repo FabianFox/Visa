@@ -38,7 +38,7 @@ visa_2020.df <- visa_2020.df %>%
 # data: http://ksgleditsch.com/data-4.html
 # Note: excluding microstates
 # Custom matches, i.e. 347 (Kosovo) = XKX
-custom.match <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
+custom.match <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKS", "678" = "YEM")
 
 # Data
 states.df <- gwstates %>%
