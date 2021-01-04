@@ -55,8 +55,8 @@ contdird.df <- import(file = "./data/independent variables/contdird.csv",
   filter(contiguity <= 3)
 
 # Turn Correlates of War IDs into ISO3 codes
-# (1) Some custom matches, i.e. 347 (Kosovo) = XKX, 345 (Serbia) = SRB 
-custom.cow <- c("345" = "SRB", "347" = "RKI")
+# (1) Some custom matches, i.e. 347 (Kosovo) = RKS, 345 (Serbia) = SRB 
+custom.cow <- c("345" = "SRB", "347" = "RKS")
 
 # (2) Transform
 contdird.df <- contdird.df %>%
@@ -212,7 +212,7 @@ trade.mat <- get.adjacency(trade.graph, sparse = FALSE, attr = "weight")
 # retrieved from: Marbach (2018), Link: https://github.com/sumtxt/wrd
 
 # COW -> iso3c
-custom.wrd <- c("345" = "SRB", "347" = "RKI", "667" = "PSE")
+custom.wrd <- c("345" = "SRB", "347" = "RKS", "667" = "PSE")
 
 # Load data and prepare variables: 
 # refugees from neighboring country, total N of refugees hosted
@@ -313,7 +313,7 @@ mig.mat <- get.adjacency(mig.graph, sparse = FALSE, attr = "weight")
 
 # Custom dictionary
 # Note: Serbia has a different cown in GW than in COW
-custom.gw <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKI", "678" = "YEM")
+custom.gw <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKS", "678" = "YEM")
 custom.eu <- custom.match[-2] # Remove BEL (Brussels as capital of EU)
 
 # Turn gwcode into iso3c
