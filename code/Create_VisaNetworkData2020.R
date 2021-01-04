@@ -37,7 +37,7 @@ visa_2020.df <- visa_2020.df %>%
 # Independent states as defined by Gleditsch & Ward (1999) 
 # data: http://ksgleditsch.com/data-4.html
 # Note: excluding microstates
-# Custom matches, i.e. 347 (Kosovo) = XKX
+# Custom matches, i.e. 347 (Kosovo) = RKS
 custom.match <- c("260" = "DEU" ,"340" = "SRB", "347" = "RKS", "678" = "YEM")
 
 # Data
