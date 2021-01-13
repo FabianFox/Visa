@@ -165,6 +165,12 @@ contiguity.mat <- edge_att.df %>%
   pull(network) %>%
   .[[1]]
 
+# Shared membership in regional integration project
+reg_int.mat <- edge_att.df %>%
+  filter(type == "reg_integration") %>%
+  pull(network) %>%
+  .[[1]]
+
 # Refugee network
 rfgs.mat <- edge_att.df %>%
   filter(type == "refugees") %>%
