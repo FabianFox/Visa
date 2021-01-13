@@ -96,6 +96,47 @@ contiguity.mat <- get.adjacency(contiguity.graph, sparse = FALSE)
 # Directed format sums contiguity scores
 contiguity.mat[contiguity.mat == 2] <- 1
 
+# Regional integration membership
+# Variable: shared_membership
+# Year: 2020
+# Bodies of regional integration from Czaika et al. (2018) 
+# The Global Evolution of Travel Visa Regimes, p. 611
+## -------------------------------------------------------------------------- ##
+# Load data
+reg_int.df <- import("./data/independent variables/Regional_Integration.xlsx") %>%
+  select(destination_iso3 = state1, nationality_iso3 = state2, shared_membership) %>%
+  mutate(shared_membership = replace_na(shared_membership, 0))
+
+# Merge EU/EFTA
+reg_int.df <- reg_int.df %>%
+  mutate(destination_iso3 = if_else(destination_iso3 %in% custom.match, 
+                             "EU", destination_iso3),
+         nationality_iso3 = if_else(nationality_iso3 %in% custom.match, 
+                           "EU", nationality_iso3)) %>%
+  distinct(destination_iso3, nationality_iso3, .keep_all = TRUE) %>%
+  filter(!(destination_iso3 == "EU" & nationality_iso3 == "EU"))
+
+# Join to visa.df
+visa_eu.df <- visa_eu.df %>%
+  left_join(y = reg_int.df)
+
+# Shared membership in network format
+# Create an igraph graph from data frame
+reg_int.graph <- graph_from_data_frame(visa_eu.df %>%
+                                            filter(shared_membership == 1) %>%
+                                         select(from = destination_iso3, 
+                                                to = nationality_iso3),
+                                       vertices = visa_eu.df %>%
+                                         pull(destination_iso3) %>%
+                                         unique(), 
+                                       directed = FALSE)
+
+# Transform into a matrix
+reg_int.mat <- get.adjacency(reg_int.graph, sparse = FALSE) 
+
+# Directed format sums contiguity scores
+reg_int.mat[reg_int.mat == 2] <- 1
+
 # COW: Trade v4.0
 # Variable: flow1, flow2
 # Year: 2014 (latest)
@@ -551,9 +592,10 @@ export(states.df, "./data/node_attributes.rds")
 
 # Edge attributes
 edge.df <- tibble(
-  type = c("contiguity", "capdist", "trade", "refugees", "migration"),
+  type = c("contiguity", "reg_integration", "capdist", "trade", "refugees", "migration"),
   network = c(
     list(contiguity.mat),
+    list(reg_int.mat),
     list(cap_dist.mat),
     list(trade.mat),
     list(rfgs.mat),
